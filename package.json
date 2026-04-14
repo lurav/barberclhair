@@ -1,0 +1,9 @@
+{
+  "name": "barber-c-l-hair",
+  "version": "1.0.0",
+  "description": "Barber c l'hair website",
+  "main": "index.html",
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  }
+}
