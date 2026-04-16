@@ -4,7 +4,6 @@
   "description": "Barber c l'hair website",
   "main": "index.html",
   "dependencies": {
-    "@vercel/kv": "^1.0.1",
-    "nodemailer": "^6.9.13"
+    "@vercel/kv": "^1.0.1"
   }
 }
