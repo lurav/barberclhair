@@ -166,7 +166,7 @@ const selectDate = (dateObj, element) => {
 const renderTimeSlots = async () => {
     timeSlotsGrid.innerHTML = "Chargement des créneaux...";
     
-    // Get busy slots from Vercel Node.js API
+    // Get busy slots from Vercel KV
     let busySlots = [];
     try {
         const response = await fetch(`api/get-busy-slots?date=${hiddenDateInput.value}`);
@@ -174,6 +174,12 @@ const renderTimeSlots = async () => {
             busySlots = await response.json();
         }
     } catch(e) { console.log("Mode hors-ligne ou Vercel non configuré"); }
+
+    // Fusionner avec les créneaux sauvegardés localement (secours)
+    const localKey = `booked:${hiddenDateInput.value}`;
+    const localSlots = JSON.parse(localStorage.getItem(localKey) || '[]');
+    busySlots = [...new Set([...busySlots, ...localSlots])];
+
 
     timeSlotsGrid.innerHTML = "";
     
@@ -258,14 +264,24 @@ if(form) {
         try {
             const data = Object.fromEntries(formData.entries());
 
-            // 1. Sauvegarde du créneau dans Vercel KV (pour le bloquer)
-            fetch('api/save-booking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            }).catch(err => console.log('KV non dispo en local:', err));
+            // 1. Sauvegarde du créneau dans Vercel KV (on attend la réponse)
+            try {
+                await fetch('api/save-booking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } catch(e) {
+                console.log('KV non dispo:', e);
+            }
 
-            // 2. Envoi de l'email via Formspree
+            // 2. Sauvegarde locale (secours si KV indisponible)
+            const localKey = `booked:${data.date}`;
+            const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
+            if (!existing.includes(data.heure)) existing.push(data.heure);
+            localStorage.setItem(localKey, JSON.stringify(existing));
+
+            // 3. Envoi de l'email via Formspree
             const response = await fetch('https://formspree.io/f/xkokjnao', {
                 method: 'POST',
                 body: formData,
@@ -273,7 +289,7 @@ if(form) {
             });
 
             if (response.ok) {
-                alert('Merci ! Votre réservation a bien été envoyée. Vous recevrez un e-mail de confirmation.');
+                alert('Merci ! Votre réservation a bien été envoyée.');
                 form.reset();
                 timeSlotsSection.style.display = 'none';
                 document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
