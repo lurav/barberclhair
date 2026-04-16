@@ -153,7 +153,11 @@ const selectDate = (dateObj, element) => {
     
     const formattedDate = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     selectedDateText.textContent = formattedDate;
-    hiddenDateInput.value = dateObj.toISOString().split('T')[0];
+    
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    hiddenDateInput.value = `${year}-${month}-${day}`;
     
     timeSlotsSection.style.display = 'block';
     renderTimeSlots();
@@ -173,7 +177,8 @@ const renderTimeSlots = async () => {
 
     timeSlotsGrid.innerHTML = "";
     
-    const selectedDateObj = new Date(hiddenDateInput.value);
+    const parts = hiddenDateInput.value.split('-');
+    const selectedDateObj = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayOfWeek = selectedDateObj.getDay();
     
     let slots = [];
