@@ -258,29 +258,21 @@ if(form) {
         try {
             const data = Object.fromEntries(formData.entries());
 
-            // 1. Save to Vercel KV via Node.js API
-            fetch('api/save-booking', {
+            // Sauvegarde en BDD et Envoi des Emails via Vercel
+            const response = await fetch('api/save-booking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
-            }).catch(err => console.log("Erreur KV ignorée (normal en local) :", err));
-
-            // 2. Send Email via Formspree
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
-                }
             });
 
             if (response.ok) {
-                alert('Merci ! Votre demande de réservation a été envoyée. Nous vous recontacterons bientôt.');
+                alert('Merci ! Votre demande de réservation a été envoyée. Vous recevrez un e-mail de confirmation.');
                 form.reset();
                 timeSlotsSection.style.display = 'none';
                 document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
+                renderTimeSlots(); // Refresh slots to automatically grey out the new one locally
             } else {
-                alert('Oups ! Une erreur est survenue lors de l\'envoi. Veuillez réessayer.');
+                alert('Oups ! Une erreur est survenue lors de la réservation. Veuillez réessayer.');
             }
         } catch (error) {
             alert('Une erreur s\'est produite. Vérifiez votre connexion.');
