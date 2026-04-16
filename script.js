@@ -282,7 +282,7 @@ if(form) {
             localStorage.setItem(localKey, JSON.stringify(existing));
 
             // 3. Envoi de l'email via Formspree
-            const response = await fetch('https://formspree.io/f/xkokjnao', {
+            const response = await fetch('https://formspree.io/f/xvzdkglj', {
                 method: 'POST',
                 body: formData,
                 headers: { 'Accept': 'application/json' }
