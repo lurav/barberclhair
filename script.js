@@ -130,8 +130,12 @@ const renderCalendar = () => {
         dayDiv.textContent = i;
         
         const checkDate = new Date(currentYear, currentMonth, i);
-        if (checkDate < today) {
+        // JS getDay() returns 1 for Monday
+        if (checkDate < today || checkDate.getDay() === 1) {
             dayDiv.classList.add("disabled");
+            if (checkDate.getDay() === 1) {
+                dayDiv.title = "Fermé le Lundi";
+            }
         } else {
             if (checkDate.getTime() === today.getTime()) {
                 dayDiv.classList.add("today");
