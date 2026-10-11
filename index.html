@@ -20,7 +20,7 @@
     
     <!-- Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <link rel="stylesheet" href="style.css?v=1.6">
+    <link rel="stylesheet" href="style.css?v=2.1">
 
     <!-- Structured Data -->
     <script type="application/ld+json">
@@ -84,10 +84,10 @@
                 <ul class="nav-list">
                     <li><a href="#home" class="nav-link">Accueil</a></li>
                     <li><a href="#services" class="nav-link">Services</a></li>
-
                     <li><a href="#about" class="nav-link">À Propos</a></li>
                     <li><a href="#gallery" class="nav-link">Galerie</a></li>
-                    <li><a href="#contact" class="nav-link btn-primary">Nous Trouver</a></li>
+                    <li><a href="#contact" class="nav-link">Nous Trouver</a></li>
+                    <li><a href="#booking" class="nav-link btn-primary">Réserver</a></li>
                 </ul>
                 <div class="nav-close" id="nav-close">
                     <i data-feather="x"></i>
@@ -104,18 +104,28 @@
         <!-- Hero Section -->
         <section class="hero section" id="home">
             <div class="hero-bg">
-                <img src="IMG_1006.JPEG" alt="Barber shop background" class="hero-img">
+                <img src="IMG_1006.JPEG" alt="Salon Barber c l'hair" class="hero-img">
             </div>
             <div class="hero-content container">
-                <h1 class="hero-title reveal">L'art de la coupe <br><span>Redéfinie.</span></h1>
-                <p class="hero-description reveal">Plus qu'un simple barbier, une expérience premium au cœur de l'élégance. Entrez dans l'univers Barber c l'hair.</p>
+                <div class="hero-badge reveal">
+                    <i data-feather="star"></i> 5.0 SUR GOOGLE • BARBIER À AULNOYE-AYMERIES
+                </div>
+                <h1 class="hero-title reveal">L'Art de la Coiffure <br><span>& de la Barbe.</span></h1>
+                <p class="hero-description reveal">
+                    Plus qu'un simple salon, une véritable expérience de soin pour l'homme moderne. Entrez dans l'univers d'exception Barber c l'hair.
+                </p>
                 <div class="hero-btns reveal">
-                    <a href="#contact" class="btn btn-accent">Nous Trouver</a>
-                    <a href="#services" class="btn btn-outline">Voir les tarifs</a>
+                    <a href="#booking" class="btn btn-accent">Prendre Rendez-vous</a>
+                    <a href="#services" class="btn btn-outline">Découvrir les Tarifs</a>
+                </div>
+                <div class="hero-features reveal">
+                    <div class="hero-feature-item"><i data-feather="check-circle"></i> Rendez-vous instantané en ligne</div>
+                    <div class="hero-feature-item"><i data-feather="check-circle"></i> Coiffures & dégradés de précision</div>
+                    <div class="hero-feature-item"><i data-feather="check-circle"></i> Parkings gratuits à proximité</div>
                 </div>
             </div>
             <div class="hero-scroll reveal">
-                <span>Défiler</span>
+                <span>Découvrir</span>
                 <div class="scroll-line"></div>
             </div>
         </section>
@@ -123,56 +133,59 @@
         <!-- Services Section -->
         <section class="services section container" id="services">
             <div class="section-header">
-                <h2 class="section-title">Nos Services</h2>
+                <h2 class="section-title">Nos Prestations & Tarifs</h2>
                 <div class="section-line"></div>
+                <p style="text-align: center; color: var(--text-light); margin-top: 1rem;">
+                    Des prestations de qualité réalisées avec passion et professionnalisme.
+                </p>
             </div>
 
             <div class="services-grid">
                 <div class="service-card reveal">
                     <div class="service-icon"><i data-feather="scissors"></i></div>
                     <h3 class="service-name">Coupe Homme</h3>
-                    <p class="service-desc">Coupe de précision et coiffage.</p>
-                    <span class="service-price">14.00 €</span>
+                    <p class="service-desc">Shampoing, coupe sur-mesure, fondu de nuque et coiffage professionnel.</p>
+                    <span class="service-price">15.00 €</span>
+                </div>
+
+                <div class="service-card featured reveal">
+                    <span class="service-badge">Le Best-Seller</span>
+                    <div class="service-icon"><i data-feather="award"></i></div>
+                    <h3 class="service-name">Formule Complète</h3>
+                    <p class="service-desc">Coupe homme sur-mesure + Taille et entretien complet de la barbe.</p>
+                    <span class="service-price">22.00 €</span>
+                </div>
+
+                <div class="service-card reveal">
+                    <div class="service-icon"><i data-feather="user-check"></i></div>
+                    <h3 class="service-name">Taille de Barbe</h3>
+                    <p class="service-desc">Taille de précision, traçage des contours et soin hydratant de finition.</p>
+                    <span class="service-price">10.00 €</span>
                 </div>
 
                 <div class="service-card reveal">
                     <div class="service-icon"><i data-feather="smile"></i></div>
                     <h3 class="service-name">Coupe Enfant</h3>
-                    <p class="service-desc">Jusqu'à 10 ans.</p>
-                    <span class="service-price">10.00 €</span>
+                    <p class="service-desc">Pour les moins de 12 ans. Une coupe tendance adaptée à leur style.</p>
+                    <span class="service-price">12.00 €</span>
                 </div>
 
                 <div class="service-card reveal">
-                    <div class="service-icon"><i data-feather="user"></i></div>
-                    <h3 class="service-name">Coupe + Barbe</h3>
-                    <p class="service-desc">Forfait complet pour un look impeccable.</p>
-                    <span class="service-price">20.00 €</span>
+                    <div class="service-icon"><i data-feather="zap"></i></div>
+                    <h3 class="service-name">Soin du Visage</h3>
+                    <p class="service-desc">Rituel relaxant avec serviette chaude, gommage et soin apaisant.</p>
+                    <span class="service-price">15.00 €</span>
                 </div>
 
                 <div class="service-card reveal">
-                    <div class="service-icon"><i data-feather="layers"></i></div>
-                    <h3 class="service-name">Barbe</h3>
-                    <p class="service-desc">Entretien et traçage de la barbe.</p>
-                    <span class="service-price">10.00 €</span>
-                </div>
-
-                <div class="service-card reveal">
-                    <div class="service-icon"><i data-feather="droplet"></i></div>
-                    <h3 class="service-name">Shampoing</h3>
-                    <p class="service-desc">Soin relaxant avant ou après coupe.</p>
-                    <span class="service-price">5.00 €</span>
-                </div>
-
-                <div class="service-card reveal">
-                    <div class="service-icon"><i data-feather="award"></i></div>
-                    <h3 class="service-name">Retraité</h3>
-                    <p class="service-desc">Tarif préférentiel pour nos aînés.</p>
+                    <div class="service-icon"><i data-feather="users"></i></div>
+                    <h3 class="service-name">Forfait Senior</h3>
+                    <p class="service-desc">Tarif préférentiel pour nos aînés avec tout le savoir-faire du salon.</p>
                     <span class="service-price">10.00 €</span>
                 </div>
             </div>
         </section>
 
-        <!-- About Section -->
         <!-- About Section -->
         <section class="about section container" id="about">
             <div class="about-grid">
@@ -382,6 +395,147 @@
         </section>
 
 
+        <!-- Booking Section -->
+        <section class="booking section container" id="booking">
+            <div class="section-header">
+                <h2 class="section-title">Prendre Rendez-vous</h2>
+                <div class="section-line"></div>
+                <p style="text-align: center; color: var(--text-light); margin-top: 1rem; font-size: 0.95rem;">
+                    Sélectionnez un jour et un horaire pour réserver votre créneau en temps réel.
+                </p>
+            </div>
+            
+            <div class="booking-container reveal">
+                <!-- Custom Booking System -->
+                <div id="custom-booking" class="calendar-widget">
+                    <div class="calendar-header">
+                        <button class="calendar-nav" id="prev-week" aria-label="Jours précédents" title="Jours précédents"><i data-feather="chevron-left"></i></button>
+                        <h3 class="calendar-month" id="current-month">Chargement du calendrier...</h3>
+                        <button class="calendar-nav" id="next-week" aria-label="Jours suivants" title="Jours suivants"><i data-feather="chevron-right"></i></button>
+                    </div>
+                    
+                    <div class="calendar-body">
+                        <!-- Days Grid -->
+                        <div class="calendar-days-wrapper">
+                            <span class="cal-section-subtitle">1. Choisissez un jour</span>
+                            <div class="calendar-days" id="calendar-days-container">
+                                <!-- Dynamic days injected by script.js -->
+                            </div>
+                        </div>
+
+                        <!-- Time Slots (shown for selected day) -->
+                        <div class="time-slots">
+                            <span class="cal-section-subtitle">2. Choisissez un créneau horaire</span>
+                            <h4 class="time-slots-title" id="selected-date-title">Sélectionnez une date</h4>
+                            <div class="slots-grid" id="slots-container">
+                                <div class="slots-loading">Chargement des créneaux...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="calendar-info">
+                        <p><i data-feather="shield"></i> Réservation instantanée sans paiement en ligne préalable (règlement sur place au salon).</p>
+                        <button id="open-admin-btn" class="admin-link-btn" title="Accès Coiffeur">Planning Coiffeur</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Booking Modal -->
+        <div id="booking-modal" class="booking-modal" aria-hidden="true">
+            <div class="booking-modal-overlay" id="booking-modal-close-overlay"></div>
+            <div class="booking-modal-card">
+                <button class="booking-modal-close" id="booking-modal-close-btn" aria-label="Fermer">&times;</button>
+                
+                <div id="booking-form-step">
+                    <div class="modal-badge"><i data-feather="scissors"></i> Barber C L'Hair</div>
+                    <h3 class="modal-title">Finaliser votre réservation</h3>
+                    <div class="modal-slot-box">
+                        <i data-feather="calendar"></i>
+                        <span id="modal-slot-recap">Chargement...</span>
+                    </div>
+                    
+                    <form id="booking-form" class="modal-form">
+                        <div class="form-group">
+                            <label for="booking-service">Prestation souhaitée</label>
+                            <select id="booking-service" required>
+                                <option value="Coupe Homme (15€)">Coupe Homme (Shampoing + Coupe + Coiffage) — 15€</option>
+                                <option value="Taille & Barbe (10€)">Taille & Entretien Barbe — 10€</option>
+                                <option value="Coupe + Barbe (22€)">Formule Complète (Coupe + Barbe) — 22€</option>
+                                <option value="Coupe Enfant (12€)">Coupe Enfant (-12 ans) — 12€</option>
+                                <option value="Soin du Visage (15€)">Soin du visage & serviette chaude — 15€</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="booking-name">Votre Nom & Prénom *</label>
+                            <input type="text" id="booking-name" placeholder="Ex: Jean Dupont" required autocomplete="name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="booking-phone">Numéro de Téléphone *</label>
+                            <input type="tel" id="booking-phone" placeholder="Ex: 06 12 34 56 78" required autocomplete="tel">
+                            <small class="form-hint">Pour vous joindre en cas de besoin ou confirmation.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="booking-note">Remarque ou préférence (facultatif)</label>
+                            <input type="text" id="booking-note" placeholder="Ex: Dégradé à blanc, premier passage...">
+                        </div>
+
+                        <div id="booking-error" class="booking-error" style="display: none;"></div>
+
+                        <button type="submit" class="btn btn-primary w-full" id="btn-submit-booking">
+                            <span id="btn-submit-text">Confirmer mon rendez-vous</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Success Step -->
+                <div id="booking-success-step" style="display: none;" class="modal-success">
+                    <div class="success-icon"><i data-feather="check-circle"></i></div>
+                    <h3 class="modal-title">Rendez-vous Confirmé !</h3>
+                    <p class="success-desc">Votre créneau est maintenant réservé et bloqué dans notre planning.</p>
+                    <div class="success-card">
+                        <p><strong><i data-feather="calendar"></i> Date :</strong> <span id="success-datetime"></span></p>
+                        <p><strong><i data-feather="scissors"></i> Prestation :</strong> <span id="success-service"></span></p>
+                        <p><strong><i data-feather="user"></i> Client :</strong> <span id="success-client"></span></p>
+                        <p><strong><i data-feather="map-pin"></i> Lieu :</strong> 33 rue de l'hôtel de ville, Aulnoye-Aymeries</p>
+                    </div>
+                    <p class="success-reminder">Paiement sur place au salon. Merci d'arriver 5 minutes à l'avance.</p>
+                    <button type="button" class="btn btn-primary w-full" id="booking-success-close-btn">Fermer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Planning Modal -->
+        <div id="admin-modal" class="booking-modal" aria-hidden="true">
+            <div class="booking-modal-overlay" id="admin-modal-close-overlay"></div>
+            <div class="booking-modal-card admin-modal-card">
+                <button class="booking-modal-close" id="admin-modal-close-btn" aria-label="Fermer">&times;</button>
+                <div class="modal-badge"><i data-feather="lock"></i> Espace Salon</div>
+                <h3 class="modal-title">Planning des Rendez-vous</h3>
+                
+                <div id="admin-auth-box">
+                    <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-light);">Code d'accès salon (code postal : 59620) :</p>
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                        <input type="password" id="admin-pin-input" placeholder="Code secret" style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff;">
+                        <button type="button" id="admin-pin-submit" class="btn btn-primary" style="padding: 0.75rem 1.25rem;">Ouvrir</button>
+                    </div>
+                    <div id="admin-pin-error" style="color: #ff6b6b; font-size: 0.85rem; display: none;">Code incorrect</div>
+                </div>
+
+                <div id="admin-content-box" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <span id="admin-filter-date" style="font-weight: 600; color: var(--accent-color);"></span>
+                        <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Actualiser</button>
+                    </div>
+                    <div id="admin-bookings-list" class="admin-bookings-list">
+                        <!-- Bookings list -->
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Contact Section -->
         <section class="contact section container" id="contact">
@@ -419,6 +573,11 @@
         </section>
     </main>
 
+    <!-- Floating CTA (Mobile) -->
+    <a href="#booking" class="floating-cta" aria-label="Réserver">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+    </a>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -438,6 +597,10 @@
             </div>
         </div>
     </footer>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <!-- Scripts -->
     <script src="script.js"></script>
