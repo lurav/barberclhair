@@ -929,6 +929,260 @@ img {
     color: var(--accent-gold);
 }
 
+/* ==========================================================================
+   BEFORE / AFTER TRANSFORMATION MODULE
+   ========================================================================== */
+.before-after-wrapper-card {
+    margin-top: 4rem;
+    padding: 3rem 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    text-align: center;
+}
+
+.before-after-header {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+}
+
+.before-after-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    margin-bottom: 0.75rem;
+}
+
+.before-after-tag svg {
+    width: 13px;
+    height: 13px;
+}
+
+.before-after-title {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+    font-family: 'Playfair Display', serif;
+}
+
+.before-after-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.before-after-container {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    height: 440px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+}
+
+.ba-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.ba-after-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    border-right: 2px solid var(--accent-gold);
+    box-shadow: 2px 0 15px rgba(212, 175, 55, 0.4);
+}
+
+.ba-after-wrapper .ba-after-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 720px;
+    max-width: none;
+}
+
+.ba-badge {
+    position: absolute;
+    bottom: 1.25rem;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    border-radius: 6px;
+    z-index: 5;
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.ba-badge-before {
+    right: 1.25rem;
+    background: rgba(0, 0, 0, 0.75);
+    color: var(--text-light);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ba-badge-after {
+    left: 1.25rem;
+    background: rgba(212, 175, 55, 0.9);
+    color: #000;
+}
+
+.ba-slider-handle {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    bottom: 0;
+    width: 4px;
+    transform: translateX(-50%);
+    cursor: ew-resize;
+    z-index: 10;
+    touch-action: none;
+}
+
+.ba-handle-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 1px;
+    width: 2px;
+    background: var(--accent-gold);
+}
+
+.ba-handle-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4af37, #b89327);
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.6), 0 4px 15px rgba(0, 0, 0, 0.6);
+    border: 2px solid #ffffff;
+    cursor: grab;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.ba-handle-button:active {
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* ==========================================================================
+   GOOGLE REVIEWS TRUST HEADER & CTA
+   ========================================================================== */
+.google-reviews-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 2rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
+.google-trust-badge {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.google-svg-logo {
+    flex-shrink: 0;
+}
+
+.google-trust-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.google-trust-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stars-gold {
+    color: #fbbf24;
+    font-size: 1.15rem;
+    letter-spacing: 2px;
+}
+
+.rating-number {
+    font-size: 1.05rem;
+    color: #ffffff;
+}
+
+.rating-number strong {
+    color: var(--accent-gold);
+    font-size: 1.25rem;
+}
+
+.google-verified-label {
+    font-size: 0.78rem;
+    color: var(--text-light);
+}
+
+.google-review-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-gold);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: var(--radius-pill);
+    background: rgba(212, 175, 55, 0.06);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.google-review-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.google-review-btn:hover {
+    background: var(--accent-gold);
+    color: #000;
+    box-shadow: 0 4px 20px var(--accent-gold-glow);
+    transform: translateY(-2px);
+}
+
 
 /* ==========================================================================
    TESTIMONIALS MARQUEE
@@ -1692,6 +1946,90 @@ img {
     line-height: 1.7;
 }
 
+/* ==========================================================================
+   LOCAL SEO CARD & TOWNS PILLS
+   ========================================================================== */
+.local-seo-card {
+    margin-top: 3rem;
+    padding: 2.25rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    text-align: left;
+}
+
+.local-seo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent-gold);
+    margin-bottom: 0.75rem;
+}
+
+.local-seo-badge svg {
+    width: 14px;
+    height: 14px;
+}
+
+.local-seo-title {
+    font-size: 1.35rem;
+    margin-bottom: 0.75rem;
+    color: #ffffff;
+    font-family: 'Playfair Display', serif;
+}
+
+.local-seo-desc {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+}
+
+.local-towns-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.town-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    transition: var(--transition-fast);
+}
+
+.town-tag:hover {
+    background: rgba(212, 175, 55, 0.12);
+    border-color: rgba(212, 175, 55, 0.35);
+    color: var(--accent-gold-light);
+    transform: translateY(-2px);
+}
+
+.local-access-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.local-access-info span strong {
+    color: #ffffff;
+}
+
 
 /* ==========================================================================
    FOOTER
@@ -2431,7 +2769,44 @@ img {
     .floating-cta {
         display: none !important;
     }
-}
+
+    /* BEFORE / AFTER SLIDER MOBILE */
+    .before-after-wrapper-card {
+        padding: 1.75rem 1rem;
+        margin-top: 2.5rem;
+    }
+
+    .before-after-title {
+        font-size: 1.4rem;
+    }
+
+    .before-after-container {
+        height: 280px;
+        max-width: 100%;
+    }
+
+    /* GOOGLE REVIEWS HEADER MOBILE */
+    .google-reviews-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1.25rem 1rem;
+        gap: 1rem;
+    }
+
+    .google-review-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* LOCAL SEO CARD MOBILE */
+    .local-seo-card {
+        padding: 1.5rem 1rem;
+        margin-top: 2rem;
+    }
+
+    .local-seo-title {
+        font-size: 1.2rem;
+    }
 }
 
 @media screen and (max-width: 380px) {
