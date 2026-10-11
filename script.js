@@ -3,24 +3,34 @@ const navMenu = document.getElementById('nav-menu'),
       navToggle = document.getElementById('nav-toggle'),
       navClose = document.getElementById('nav-close');
 
+function openNavMenu() {
+    if (navMenu) navMenu.classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeNavMenu() {
+    if (navMenu) navMenu.classList.remove('show');
+    document.body.style.overflow = '';
+}
+
 if(navToggle) {
-    navToggle.addEventListener('click', () => {
-        navMenu.classList.add('show');
-    });
+    navToggle.addEventListener('click', openNavMenu);
 }
 
 if(navClose) {
-    navClose.addEventListener('click', () => {
-        navMenu.classList.remove('show');
-    });
+    navClose.addEventListener('click', closeNavMenu);
 }
 
 // Close mobile menu when a link is clicked
 const navLink = document.querySelectorAll('.nav-link');
-function linkAction() {
-    navMenu.classList.remove('show');
-}
-navLink.forEach(n => n.addEventListener('click', linkAction));
+navLink.forEach(n => n.addEventListener('click', closeNavMenu));
+
+// Close mobile menu on click outside or Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && navMenu && navMenu.classList.contains('show')) {
+        closeNavMenu();
+    }
+});
 
 // Header background change on scroll
 function scrollHeader() {
@@ -266,6 +276,16 @@ function renderCalendarDays() {
                 selectedDate = new Date(date);
                 renderCalendarDays();
                 loadSlotsForSelectedDate();
+
+                // Smooth scroll to time slots on mobile
+                if (window.innerWidth <= 768) {
+                    setTimeout(() => {
+                        const timeSlotsEl = document.querySelector('.time-slots');
+                        if (timeSlotsEl) {
+                            timeSlotsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    }, 120);
+                }
             });
         }
 
@@ -688,13 +708,15 @@ async function showAdminPlanning() {
                 const item = document.createElement('div');
                 item.className = 'admin-booking-item';
                 item.innerHTML = `
-                    <div class="admin-booking-time">${b.time}</div>
+                    <div class="admin-booking-header">
+                        <span class="admin-booking-time">${escapeHtml(b.time || '')}</span>
+                        <span class="admin-booking-service-badge">✂️ ${escapeHtml(b.service || 'Coupe')}</span>
+                    </div>
                     <div class="admin-booking-details">
                         <div class="admin-booking-client">${escapeHtml(b.clientName || 'Client')}</div>
                         <div class="admin-booking-meta">
-                            <span>📞 <a href="tel:${escapeHtml(b.clientPhone || '')}" style="color: var(--accent-color); text-decoration: underline;">${escapeHtml(b.clientPhone || 'Non renseigné')}</a></span> • 
-                            <span>✂️ ${escapeHtml(b.service || 'Coupe')}</span>
-                            ${b.clientNote ? `<br><em>Note: ${escapeHtml(b.clientNote)}</em>` : ''}
+                            <span>📞 <a href="tel:${escapeHtml(b.clientPhone || '')}">${escapeHtml(b.clientPhone || 'Non renseigné')}</a></span>
+                            ${b.clientNote ? `<div style="margin-top: 0.3rem;"><em>Note: ${escapeHtml(b.clientNote)}</em></div>` : ''}
                         </div>
                     </div>
                 `;
@@ -742,4 +764,129 @@ if (document.readyState === 'loading') {
     renderCalendarDays();
     loadSlotsForSelectedDate();
 }
+
+/* ==========================================================================
+   MOBILE-SPECIFIC ENHANCEMENTS (SWIPE, TOAST, QUICK SELECTION)
+   ========================================================================== */
+
+// Mobile Touch Swipe for Calendar Week Navigation
+const calendarWidget = document.getElementById('custom-booking');
+if (calendarWidget) {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    calendarWidget.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    
+    calendarWidget.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+        
+        // Trigger swipe only if predominantly horizontal
+        if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY)) {
+            if (diffX < 0) {
+                // Swipe left -> Next week
+                const nextBtn = document.getElementById('next-week');
+                if (nextBtn) nextBtn.click();
+            } else if (diffX > 0 && currentWeekOffset > 0) {
+                // Swipe right -> Previous week
+                const prevBtn = document.getElementById('prev-week');
+                if (prevBtn) prevBtn.click();
+            }
+        }
+    }, { passive: true });
+}
+
+// Mobile Toast Notification
+function showToast(message) {
+    const toast = document.getElementById('mobile-toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2800);
+}
+
+// Service Selection & Direct Booking
+const serviceSelectBtns = document.querySelectorAll('.service-select-btn');
+const serviceCards = document.querySelectorAll('.service-card');
+const serviceSelectInput = document.getElementById('booking-service');
+
+function handleServiceSelect(serviceVal) {
+    if (serviceSelectInput && serviceVal) {
+        serviceSelectInput.value = serviceVal;
+        const cleanName = serviceVal.split('(')[0].trim();
+        showToast(`✂️ Service : ${cleanName}`);
+    }
+}
+
+serviceSelectBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const serviceVal = btn.getAttribute('data-service');
+        if (serviceVal) handleServiceSelect(serviceVal);
+    });
+});
+
+serviceCards.forEach(card => {
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.service-select-btn')) return;
+        const serviceVal = card.getAttribute('data-service');
+        if (serviceVal) {
+            handleServiceSelect(serviceVal);
+            const bookingSection = document.getElementById('booking');
+            if (bookingSection) {
+                bookingSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    });
+});
+
+// Mobile Bottom-Sheet Swipe Down to Close
+function setupModalSwipeToClose(modalId, closeFn) {
+    const modalEl = document.getElementById(modalId);
+    if (!modalEl) return;
+    const card = modalEl.querySelector('.booking-modal-card');
+    if (!card) return;
+
+    let touchStartY = 0;
+    card.addEventListener('touchstart', (e) => {
+        if (card.scrollTop <= 5) {
+            touchStartY = e.touches[0].clientY;
+        } else {
+            touchStartY = 0;
+        }
+    }, { passive: true });
+
+    card.addEventListener('touchmove', (e) => {
+        if (touchStartY > 0) {
+            const currentY = e.touches[0].clientY;
+            const deltaY = currentY - touchStartY;
+            if (deltaY > 0) {
+                card.style.transform = `translateY(${deltaY}px)`;
+            }
+        }
+    }, { passive: true });
+
+    card.addEventListener('touchend', (e) => {
+        if (touchStartY > 0) {
+            const endY = e.changedTouches[0].clientY;
+            const deltaY = endY - touchStartY;
+            if (deltaY > 90) {
+                closeFn();
+            }
+            card.style.transform = '';
+        }
+        touchStartY = 0;
+    }, { passive: true });
+}
+
+setupModalSwipeToClose('booking-modal', closeBookingModal);
+setupModalSwipeToClose('admin-modal', closeAdminModal);
+
 
