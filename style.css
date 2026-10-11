@@ -526,7 +526,8 @@ img {
 .services-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
+    gap: 2.5rem 2rem;
+    padding-top: 18px;
 }
 
 .service-card {
@@ -539,7 +540,7 @@ img {
     transition: var(--transition);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Subtle top accent line on cards */
@@ -550,6 +551,7 @@ img {
     left: 0;
     width: 100%;
     height: 2px;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
     transition: var(--transition);
 }
@@ -569,6 +571,7 @@ img {
     border-color: var(--accent-gold);
     background: rgba(212, 175, 55, 0.05);
     box-shadow: 0 10px 30px rgba(212, 175, 55, 0.15);
+    overflow: visible !important;
 }
 
 .service-card.featured::before {
@@ -577,18 +580,24 @@ img {
 
 .service-badge {
     position: absolute;
-    top: -12px;
+    top: -14px;
     left: 50%;
     transform: translateX(-50%);
     background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
     color: #000000;
-    font-size: 0.7rem;
-    font-weight: 700;
+    font-size: 0.72rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 0.3rem 0.9rem;
+    letter-spacing: 1.2px;
+    padding: 0.35rem 1.1rem;
     border-radius: var(--radius-pill);
     box-shadow: 0 4px 15px var(--accent-gold-glow);
+    white-space: nowrap;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
 }
 
 .service-icon {
@@ -982,8 +991,10 @@ img {
 .before-after-container {
     position: relative;
     width: 100%;
-    max-width: 720px;
-    height: 440px;
+    max-width: 600px;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    max-height: 580px;
     margin: 0 auto;
     overflow: hidden;
     border-radius: var(--radius-md);
@@ -1001,6 +1012,7 @@ img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center top;
     pointer-events: none;
 }
 
@@ -1021,8 +1033,10 @@ img {
     top: 0;
     left: 0;
     height: 100%;
-    width: 720px;
+    width: 600px;
     max-width: none;
+    object-fit: cover;
+    object-position: center top;
 }
 
 .ba-badge {
