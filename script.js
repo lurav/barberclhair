@@ -435,8 +435,13 @@ function openBookingModal(time) {
     bookingModal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
+    const modalCard = bookingModal.querySelector('.booking-modal-card');
+    if (modalCard) modalCard.scrollTop = 0;
+
     const nameInput = document.getElementById('booking-name');
-    if (nameInput) setTimeout(() => nameInput.focus(), 100);
+    if (nameInput && window.innerWidth > 768) {
+        setTimeout(() => nameInput.focus(), 150);
+    }
 
     if (window.feather) feather.replace();
 }

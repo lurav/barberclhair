@@ -1227,8 +1227,9 @@ img {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
     z-index: 2000;
     display: flex;
     align-items: center;
@@ -1237,6 +1238,8 @@ img {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .booking-modal.show {
@@ -1245,7 +1248,7 @@ img {
 }
 
 .booking-modal-overlay {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -1261,14 +1264,17 @@ img {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-lg);
     width: 100%;
-    max-width: 500px;
+    max-width: 480px;
     max-height: 90vh;
+    max-height: 90dvh;
     overflow-y: auto;
-    padding: 2.5rem 2rem;
+    -webkit-overflow-scrolling: touch;
+    padding: 2.25rem 2rem;
     z-index: 10;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
     transform: translateY(20px) scale(0.97);
     transition: transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
+    margin: auto;
 }
 
 .booking-modal.show .booking-modal-card {
@@ -1694,7 +1700,7 @@ img {
 @media screen and (max-width: 992px) {
     .hero-title { font-size: 3.5rem; }
     .about-grid, .contact-grid { grid-template-columns: 1fr; gap: 3rem; }
-    .about-img { height: 400px; }
+    .about-img { height: 350px; }
     .about-img::after { display: none; }
 
     .nav-menu {
@@ -1703,10 +1709,11 @@ img {
         left: 0;
         width: 100%;
         height: 100vh;
+        height: 100dvh;
         transform: translateY(-150%);
-        background-color: rgba(0, 0, 0, 0.97);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        background-color: rgba(0, 0, 0, 0.98);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -1740,8 +1747,7 @@ img {
     }
 
     .hero-btns { flex-direction: column; }
-    .section { padding: 5rem 0; }
-    .gallery-grid { grid-template-columns: 1fr; }
+    .section { padding: 4.5rem 0; }
     .footer-content { flex-direction: column; gap: 2rem; }
 
     .calendar-body {
@@ -1762,6 +1768,26 @@ img {
 }
 
 @media screen and (max-width: 768px) {
+    /* SECTIONS & TYPOGRAPHY */
+    .section {
+        padding: 3.5rem 0;
+    }
+
+    .section-header {
+        margin-bottom: 2.25rem;
+    }
+
+    .section-title {
+        font-size: 1.85rem;
+        letter-spacing: 2px;
+    }
+
+    /* HERO */
+    .hero {
+        padding: 6.5rem 0 3.5rem;
+        min-height: auto;
+    }
+
     .hero-content {
         text-align: center;
         display: flex;
@@ -1769,49 +1795,148 @@ img {
         align-items: center;
     }
 
+    .hero-title {
+        font-size: clamp(2rem, 7.5vw, 2.75rem);
+        line-height: 1.15;
+        margin-bottom: 1rem;
+    }
+
+    .hero-description {
+        font-size: 0.95rem;
+        margin-bottom: 1.75rem;
+        padding: 0 0.5rem;
+    }
+
+    .hero-badge {
+        font-size: 0.75rem;
+        padding: 0.4rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .hero-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .hero-feature-item {
+        font-size: 0.8rem;
+    }
+
+    .hero-btns {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.75rem;
+    }
+
+    .hero-btns .btn {
+        width: 100%;
+        text-align: center;
+        padding: 0.85rem 1.25rem;
+    }
+
+    .hero-scroll {
+        display: none;
+    }
+
+    /* SERVICES */
+    .services-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .service-card {
+        padding: 2rem 1.25rem;
+        border-radius: 16px;
+    }
+
+    /* ABOUT */
     .about-content {
         text-align: center;
     }
 
-    .hero-title {
-        font-size: 2.75rem;
+    .about-img {
+        height: 260px;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
     }
 
-    .hero-description {
-        font-size: 1rem;
+    .about-stats {
+        justify-content: space-around;
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
     }
 
-    .hero-features {
-        justify-content: center;
+    .stat-num {
+        font-size: 2.2rem;
     }
 
-    .section-title {
-        font-size: 2rem;
+    .stat-label {
+        font-size: 0.75rem;
     }
 
-    .form-row {
-        flex-direction: column;
-    }
-
-    .slots-grid {
+    /* GALLERY : 2 COLUMNS ON MOBILE */
+    .gallery-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
     }
 
+    .gallery-item {
+        height: 180px;
+        border-radius: 12px;
+    }
+
+    /* TESTIMONIALS */
+    .testimonials {
+        padding: 4rem 0;
+    }
+
+    .testimonial-card {
+        width: min(290px, 82vw);
+        padding: 1.75rem 1.25rem;
+        border-radius: 14px;
+    }
+
+    .testimonial-text {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+
+    /* CALENDAR */
     .booking-container {
-        padding: 1.5rem 1.25rem;
+        padding: 1.25rem 0.85rem;
+        border-radius: 16px;
+    }
+
+    .calendar-header {
+        padding: 1rem 0.75rem;
+    }
+
+    .calendar-month {
+        font-size: 1.05rem;
+    }
+
+    .calendar-nav {
+        width: 36px;
+        height: 36px;
     }
 
     .calendar-body {
-        padding: 1.25rem 0.75rem;
+        padding: 1rem 0.5rem;
+        gap: 1.5rem;
     }
 
     .calendar-days {
-        gap: 0.35rem;
+        gap: 0.25rem;
     }
 
     .cal-date {
-        width: 38px;
-        height: 38px;
+        width: 36px;
+        height: 36px;
         font-size: 0.85rem;
     }
 
@@ -1819,34 +1944,123 @@ img {
         font-size: 0.65rem;
     }
 
-    .about-stats {
-        justify-content: center;
+    .slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.45rem;
+    }
+
+    .slot-btn {
+        padding: 0.65rem 0.2rem;
+        font-size: 0.85rem;
+        min-height: 42px;
+    }
+
+    /* BOOKING MODAL (BOTTOM-SHEET ERGONOMIQUE MOBILE) */
+    .booking-modal {
+        align-items: flex-end;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .booking-modal-card {
+        width: 100%;
+        max-width: 100%;
+        max-height: 88dvh;
+        max-height: 88vh;
+        border-radius: 22px 22px 0 0;
+        padding: 1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 16px));
+        margin: 0;
+        border-bottom: none;
+        transform: translateY(100%);
+        transition: transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.9);
+    }
+
+    .booking-modal.show .booking-modal-card {
+        transform: translateY(0);
+    }
+
+    .booking-modal-card::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 2px;
+        margin: 0 auto 0.75rem;
+    }
+
+    .booking-modal-close {
+        top: 0.75rem;
+        right: 0.75rem;
+        width: 40px;
+        height: 40px;
+        font-size: 1.75rem;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .modal-badge {
+        margin-bottom: 0.35rem;
+        font-size: 0.7rem;
+        padding: 0.2rem 0.6rem;
+    }
+
+    .modal-title {
+        font-size: 1.2rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .modal-slot-box {
+        padding: 0.6rem 0.85rem;
+        margin-bottom: 0.85rem;
+        font-size: 0.85rem;
+    }
+
+    .modal-form .form-group {
+        margin-bottom: 0.75rem;
+    }
+
+    .modal-form label {
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .modal-form input,
+    .modal-form select {
+        padding: 0.7rem 0.85rem;
+        font-size: 16px; /* Evite le zoom involontaire sur iOS */
+        border-radius: 8px;
+    }
+
+    .form-hint {
+        font-size: 0.68rem;
+        margin-top: 0.2rem;
+    }
+
+    #btn-submit-booking {
+        padding: 0.85rem 1rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-top: 0.6rem;
+        border-radius: 8px;
+    }
+
+    /* FLOATING CTA */
+    .floating-cta {
+        bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+        right: 1.25rem;
     }
 }
 
-@media screen and (max-width: 480px) {
-    .hero-title { font-size: 2.25rem; }
-    .hero-btns { width: 100%; }
-    .btn { width: 100%; text-align: center; }
-    .booking-modal-card { padding: 1.75rem 1.25rem; }
-
-    .booking-container {
-        padding: 1rem 0.5rem;
-    }
-
-    .calendar-body {
-        padding: 1rem 0.25rem;
-        gap: 1.5rem;
-    }
-
+@media screen and (max-width: 380px) {
     .calendar-days {
-        gap: 0.2rem;
+        gap: 0.15rem;
     }
 
     .cal-date {
-        width: 35px;
-        height: 35px;
-        font-size: 0.8rem;
+        width: 32px;
+        height: 32px;
+        font-size: 0.78rem;
     }
 
     .cal-day-name {
@@ -1855,6 +2069,10 @@ img {
 
     .slots-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .modal-title {
+        font-size: 1.1rem;
     }
 }
 
