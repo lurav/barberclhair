@@ -599,7 +599,7 @@ const adminBookingsList = document.getElementById('admin-bookings-list');
 const adminFilterDate = document.getElementById('admin-filter-date');
 const adminRefreshBtn = document.getElementById('admin-refresh-btn');
 
-const ADMIN_PIN = "59620"; // Code postal d'Aulnoye-Aymeries
+const ADMIN_PIN = "176521";
 let isAdminAuthenticated = false;
 
 function openAdminModal() {
