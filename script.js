@@ -517,8 +517,9 @@ if (bookingForm) {
             return;
         }
 
-        if (phoneVal.length < 8) {
-            showBookingError("Veuillez renseigner un numéro de téléphone valide.");
+        const cleanPhone = phoneVal.replace(/\D/g, '');
+        if (cleanPhone.length < 10) {
+            showBookingError("Veuillez renseigner un numéro de téléphone valide à 10 chiffres (ex: 06 12 34 56 78).");
             return;
         }
 
@@ -589,6 +590,34 @@ function showBookingError(msg) {
         bookingError.textContent = msg;
         bookingError.style.display = 'block';
     }
+}
+
+// Formatage automatique du numéro de téléphone en direct (06 12 34 56 78)
+const bookingPhoneInput = document.getElementById('booking-phone');
+if (bookingPhoneInput) {
+    bookingPhoneInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const isInternational = val.trim().startsWith('+');
+        const digits = val.replace(/\D/g, '');
+
+        if (isInternational && digits.startsWith('33')) {
+            const num = digits.substring(2, 11);
+            let formatted = '+33';
+            if (num.length > 0) formatted += ' ' + num.substring(0, 1);
+            if (num.length > 1) formatted += ' ' + num.substring(1, 3);
+            if (num.length > 3) formatted += ' ' + num.substring(3, 5);
+            if (num.length > 5) formatted += ' ' + num.substring(5, 7);
+            if (num.length > 7) formatted += ' ' + num.substring(7, 9);
+            e.target.value = formatted;
+        } else {
+            const num = digits.substring(0, 10);
+            const chunks = [];
+            for (let i = 0; i < num.length; i += 2) {
+                chunks.push(num.substring(i, i + 2));
+            }
+            e.target.value = chunks.join(' ');
+        }
+    });
 }
 
 // Week Navigation Buttons
