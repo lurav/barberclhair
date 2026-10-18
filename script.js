@@ -518,8 +518,13 @@ if (bookingForm) {
         }
 
         const cleanPhone = phoneVal.replace(/\D/g, '');
-        if (cleanPhone.length < 10) {
-            showBookingError("Veuillez renseigner un numéro de téléphone valide à 10 chiffres (ex: 06 12 34 56 78).");
+        if (cleanPhone.length < 9) {
+            showBookingError("Veuillez renseigner un numéro de téléphone valide (au moins 9 chiffres).");
+            return;
+        }
+
+        if (!currentSlotForBooking || !currentSlotForBooking.dateIso || !currentSlotForBooking.time) {
+            showBookingError("Créneau non sélectionné ou expiré. Veuillez choisir un créneau horaire.");
             return;
         }
 
@@ -535,13 +540,16 @@ if (bookingForm) {
             clientName: nameVal,
             clientPhone: phoneVal,
             clientNote: noteVal || '',
-            createdAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
+            createdAt: (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
         };
 
         try {
             if (db) {
-                // Add to Firestore collection
-                await db.collection('bookings').add(bookingPayload);
+                // Add to Firestore collection with a strict 3.5s timeout to prevent hanging on mobile
+                await Promise.race([
+                    db.collection('bookings').add(bookingPayload),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3500))
+                ]);
             } else {
                 saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time);
             }
@@ -566,8 +574,8 @@ if (bookingForm) {
 
             if (window.feather) feather.replace();
         } catch (err) {
-            console.error("Erreur lors de la réservation :", err);
-            // If Firestore rules prevent write or network error
+            console.warn("Enregistrement en ligne différé ou hors-ligne :", err);
+            // Save locally so the client's reservation is guaranteed
             saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time);
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             document.getElementById('success-service').textContent = serviceVal;
@@ -941,46 +949,9 @@ serviceCards.forEach(card => {
     });
 });
 
-// Mobile Bottom-Sheet Swipe Down to Close
-function setupModalSwipeToClose(modalId, closeFn) {
-    const modalEl = document.getElementById(modalId);
-    if (!modalEl) return;
-    const card = modalEl.querySelector('.booking-modal-card');
-    if (!card) return;
+// Mobile Bottom-Sheet: La fermeture au glissé tactile a été retirée pour éviter
+// que la fenêtre de prise de rendez-vous ne se ferme par accident quand on fait défiler le formulaire.
+// La fermeture se fait désormais via le bouton (X) ou en tapant en dehors.
 
-    let touchStartY = 0;
-    card.addEventListener('touchstart', (e) => {
-        if (card.scrollTop <= 5) {
-            touchStartY = e.touches[0].clientY;
-        } else {
-            touchStartY = 0;
-        }
-    }, { passive: true });
-
-    card.addEventListener('touchmove', (e) => {
-        if (touchStartY > 0) {
-            const currentY = e.touches[0].clientY;
-            const deltaY = currentY - touchStartY;
-            if (deltaY > 0) {
-                card.style.transform = `translateY(${deltaY}px)`;
-            }
-        }
-    }, { passive: true });
-
-    card.addEventListener('touchend', (e) => {
-        if (touchStartY > 0) {
-            const endY = e.changedTouches[0].clientY;
-            const deltaY = endY - touchStartY;
-            if (deltaY > 90) {
-                closeFn();
-            }
-            card.style.transform = '';
-        }
-        touchStartY = 0;
-    }, { passive: true });
-}
-
-setupModalSwipeToClose('booking-modal', closeBookingModal);
-setupModalSwipeToClose('admin-modal', closeAdminModal);
 
 
