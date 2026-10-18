@@ -796,6 +796,8 @@ if (adminModalCloseOverlay) adminModalCloseOverlay.addEventListener('click', clo
 
 if (adminPinSubmit && adminPinInput) {
     adminPinSubmit.addEventListener('click', () => {
+        // Enlève le focus du champ pour forcer iOS à refermer le clavier et remettre le zoom à 1
+        adminPinInput.blur();
         if (adminPinInput.value.trim() === ADMIN_PIN) {
             isAdminAuthenticated = true;
             if (adminPinError) adminPinError.style.display = 'none';
@@ -806,7 +808,10 @@ if (adminPinSubmit && adminPinInput) {
     });
 
     adminPinInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') adminPinSubmit.click();
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            adminPinSubmit.click();
+        }
     });
 }
 

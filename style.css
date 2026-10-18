@@ -1612,7 +1612,8 @@ img {
 }
 
 .modal-form input,
-.modal-form select {
+.modal-form select,
+#admin-pin-input {
     width: 100%;
     padding: 0.85rem 1rem;
     background: rgba(255, 255, 255, 0.04);
@@ -1620,7 +1621,8 @@ img {
     border-radius: var(--radius-sm);
     color: #fff;
     font-family: inherit;
-    font-size: 0.95rem;
+    font-size: 16px !important; /* Minimum 16px pour empêcher iOS/Safari de zoomer */
+    touch-action: manipulation;
     transition: var(--transition);
 }
 
