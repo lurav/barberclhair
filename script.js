@@ -640,10 +640,11 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
     const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // Durée 30 min
 
     const pad = (n) => String(n).padStart(2, '0');
-    const formatCalDate = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    // Format UTC pour Google Calendar et iCalendar standard
+    const formatCalDateUTC = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
 
-    const startStr = formatCalDate(startDate);
-    const endStr = formatCalDate(endDate);
+    const startUtcStr = formatCalDateUTC(startDate);
+    const endUtcStr = formatCalDateUTC(endDate);
 
     const title = `Barber C L'Hair — Forfait : ${service}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
@@ -653,15 +654,18 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
     const calBtn = document.getElementById('btn-add-calendar');
     if (!calBtn) return;
 
-    calBtn.onclick = () => {
-        const isAndroid = /Android/i.test(navigator.userAgent);
+    calBtn.onclick = (e) => {
+        if (e) e.preventDefault();
+        const ua = navigator.userAgent || '';
+        const isAndroid = /Android/i.test(ua);
+        const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
         if (isAndroid) {
             // Sur Android, redirection directe vers Google Agenda
-            const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
+            const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startUtcStr}/${endUtcStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
             window.open(googleUrl, '_blank');
         } else {
-            // Sur iPhone (iOS) et autres : fichier .ics standard avec alarme 1h avant (ouvre l'app Calendrier native)
+            // Sur iPhone (iOS) et macOS / Windows : génération .ics standard
             const icsContent = [
                 'BEGIN:VCALENDAR',
                 'VERSION:2.0',
@@ -670,9 +674,9 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
                 'METHOD:PUBLISH',
                 'BEGIN:VEVENT',
                 `UID:barber-${Date.now()}@barberclhair.fr`,
-                `DTSTAMP:${formatCalDate(new Date())}Z`,
-                `DTSTART:${startStr}`,
-                `DTEND:${endStr}`,
+                `DTSTAMP:${formatCalDateUTC(new Date())}`,
+                `DTSTART:${startUtcStr}`,
+                `DTEND:${endUtcStr}`,
                 `SUMMARY:${title}`,
                 `DESCRIPTION:${descICS}`,
                 `LOCATION:${location}`,
@@ -686,15 +690,21 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
                 'END:VCALENDAR'
             ].join('\r\n');
 
-            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            if (isIOS) {
+                // Sur iOS Safari, le data URI text/calendar déclenche directement l'ajout dans Apple Calendar
+                const uri = 'data:text/calendar;charset=utf8,' + encodeURIComponent(icsContent);
+                window.location.href = uri;
+            } else {
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
         }
     };
 }
