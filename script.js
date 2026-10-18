@@ -554,6 +554,7 @@ if (bookingForm) {
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
             updateWhatsAppRecapBtn(nameVal, phoneVal, serviceVal, currentSlotForBooking.dateFull, currentSlotForBooking.time);
+            setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal);
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
@@ -573,6 +574,7 @@ if (bookingForm) {
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
             updateWhatsAppRecapBtn(nameVal, phoneVal, serviceVal, currentSlotForBooking.dateFull, currentSlotForBooking.time);
+            setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal);
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
@@ -628,6 +630,73 @@ function updateWhatsAppRecapBtn(name, phone, service, dateFull, time) {
     if (!waBtn) return;
     const msg = `Bonjour Barber C L'Hair ! ✂️\nJe confirme mon rendez-vous pris sur le site :\n\n👤 Client : ${name}\n📞 Tél : ${phone}\n📅 Date : ${dateFull} à ${time}\n💈 Prestation : ${service}\n📍 Lieu : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\n\nÀ très vite !`;
     waBtn.href = `https://wa.me/33749153855?text=${encodeURIComponent(msg)}`;
+}
+
+// Configuration des boutons Calendrier (Apple iCal / iPhone + Google Agenda) avec rappel 1h avant
+function setupCalendarButtons(dateIso, time, service, clientName) {
+    if (!dateIso || !time) return;
+    const [year, month, day] = dateIso.split('-').map(Number);
+    const [hour, min] = time.split(':').map(Number);
+
+    const startDate = new Date(year, month - 1, day, hour, min, 0);
+    const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // Durée 30 min
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const formatCalDate = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+
+    const startStr = formatCalDate(startDate);
+    const endStr = formatCalDate(endDate);
+
+    const title = `💈 Barber C L'Hair — ${service}`;
+    const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
+    const descPlain = `Rendez-vous Barber C L'Hair\nPrestation : ${service}\nClient : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél salon : 07 49 15 38 55`;
+    const descICS = `Rendez-vous Barber C L'Hair\\nPrestation: ${service}\\nClient: ${clientName}\\nAdresse: 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries\\nTéléphone salon: 07 49 15 38 55`;
+
+    // 1. Bouton Google Agenda
+    const googleBtn = document.getElementById('btn-add-google');
+    if (googleBtn) {
+        googleBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
+    }
+
+    // 2. Bouton Agenda iPhone / Apple iCal (.ics) avec rappel 1h avant
+    const icalBtn = document.getElementById('btn-add-ical');
+    if (icalBtn) {
+        icalBtn.onclick = () => {
+            const icsContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Barber C L\'Hair//FR',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH',
+                'BEGIN:VEVENT',
+                `UID:barber-${Date.now()}@barberclhair.fr`,
+                `DTSTAMP:${formatCalDate(new Date())}Z`,
+                `DTSTART:${startStr}`,
+                `DTEND:${endStr}`,
+                `SUMMARY:${title}`,
+                `DESCRIPTION:${descICS}`,
+                `LOCATION:${location}`,
+                'STATUS:CONFIRMED',
+                'BEGIN:VALARM',
+                'TRIGGER:-PT1H',
+                'ACTION:DISPLAY',
+                'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 1h',
+                'END:VALARM',
+                'END:VEVENT',
+                'END:VCALENDAR'
+            ].join('\r\n');
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+    }
 }
 
 // Week Navigation Buttons
