@@ -637,10 +637,10 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
     const startStr = formatCalDate(startDate);
     const endStr = formatCalDate(endDate);
 
-    const title = `💈 Barber C L'Hair — ${service}`;
+    const title = `Barber C L'Hair — ${service}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
-    const descPlain = `✂️ Rendez-vous chez Barber C L'Hair !\n\n👤 Client : ${clientName}\n💈 Prestation : ${service}\n📍 Lieu : 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries\n📞 Salon : 07 49 15 38 55\n\n🅿️ Parking gratuit de la mairie disponible à proximité.\n⏰ Merci d'arriver 5 minutes à l'avance. À très vite !`;
-    const descICS = `✂️ Rendez-vous chez Barber C L'Hair !\\n\\n👤 Client : ${clientName}\\n💈 Prestation : ${service}\\n📍 Lieu : 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries\\n📞 Salon : 07 49 15 38 55\\n\\n🅿️ Parking gratuit de la mairie disponible à proximité.\\n⏰ Merci d'arriver 5 minutes à l'avance. À très vite !`;
+    const descPlain = `Rendez-vous Barber C L'Hair\nPrestation : ${service}\nClient : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
+    const descICS = `Rendez-vous Barber C L'Hair\\nPrestation : ${service}\\nClient : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
 
     // 1. Bouton Google Agenda
     const googleBtn = document.getElementById('btn-add-google');
