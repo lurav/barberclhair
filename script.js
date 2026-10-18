@@ -767,7 +767,7 @@ function openAdminModal() {
         if (adminContentBox) adminContentBox.style.display = 'none';
         if (adminPinInput) {
             adminPinInput.value = '';
-            setTimeout(() => adminPinInput.focus(), 100);
+            // Ne pas forcer le .focus() automatique sur mobile car iOS zoome automatiquement sur la page
         }
     }
     if (window.feather) feather.replace();
