@@ -553,7 +553,6 @@ if (bookingForm) {
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
-            updateWhatsAppRecapBtn(nameVal, phoneVal, serviceVal, currentSlotForBooking.dateFull, currentSlotForBooking.time);
             setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal);
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
@@ -573,7 +572,6 @@ if (bookingForm) {
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
-            updateWhatsAppRecapBtn(nameVal, phoneVal, serviceVal, currentSlotForBooking.dateFull, currentSlotForBooking.time);
             setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal);
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
@@ -624,14 +622,6 @@ if (bookingPhoneInput) {
     });
 }
 
-// Génération du lien WhatsApp avec récapitulatif pré-rempli
-function updateWhatsAppRecapBtn(name, phone, service, dateFull, time) {
-    const waBtn = document.getElementById('btn-whatsapp-recap');
-    if (!waBtn) return;
-    const msg = `Bonjour Barber C L'Hair ! ✂️\nJe confirme mon rendez-vous pris sur le site :\n\n👤 Client : ${name}\n📞 Tél : ${phone}\n📅 Date : ${dateFull} à ${time}\n💈 Prestation : ${service}\n📍 Lieu : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\n\nÀ très vite !`;
-    waBtn.href = `https://wa.me/33749153855?text=${encodeURIComponent(msg)}`;
-}
-
 // Configuration des boutons Calendrier (Apple iCal / iPhone + Google Agenda) avec rappel 1h avant
 function setupCalendarButtons(dateIso, time, service, clientName) {
     if (!dateIso || !time) return;
@@ -649,8 +639,8 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
 
     const title = `💈 Barber C L'Hair — ${service}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
-    const descPlain = `Rendez-vous Barber C L'Hair\nPrestation : ${service}\nClient : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél salon : 07 49 15 38 55`;
-    const descICS = `Rendez-vous Barber C L'Hair\\nPrestation: ${service}\\nClient: ${clientName}\\nAdresse: 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries\\nTéléphone salon: 07 49 15 38 55`;
+    const descPlain = `✂️ Rendez-vous chez Barber C L'Hair !\n\n👤 Client : ${clientName}\n💈 Prestation : ${service}\n📍 Lieu : 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries\n📞 Salon : 07 49 15 38 55\n\n🅿️ Parking gratuit de la mairie disponible à proximité.\n⏰ Merci d'arriver 5 minutes à l'avance. À très vite !`;
+    const descICS = `✂️ Rendez-vous chez Barber C L'Hair !\\n\\n👤 Client : ${clientName}\\n💈 Prestation : ${service}\\n📍 Lieu : 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries\\n📞 Salon : 07 49 15 38 55\\n\\n🅿️ Parking gratuit de la mairie disponible à proximité.\\n⏰ Merci d'arriver 5 minutes à l'avance. À très vite !`;
 
     // 1. Bouton Google Agenda
     const googleBtn = document.getElementById('btn-add-google');
