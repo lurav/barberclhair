@@ -553,6 +553,7 @@ if (bookingForm) {
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
+            updateWhatsAppRecapBtn(nameVal, phoneVal, serviceVal, currentSlotForBooking.dateFull, currentSlotForBooking.time);
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
@@ -571,6 +572,7 @@ if (bookingForm) {
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
+            updateWhatsAppRecapBtn(nameVal, phoneVal, serviceVal, currentSlotForBooking.dateFull, currentSlotForBooking.time);
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
@@ -618,6 +620,14 @@ if (bookingPhoneInput) {
             e.target.value = chunks.join(' ');
         }
     });
+}
+
+// Génération du lien WhatsApp avec récapitulatif pré-rempli
+function updateWhatsAppRecapBtn(name, phone, service, dateFull, time) {
+    const waBtn = document.getElementById('btn-whatsapp-recap');
+    if (!waBtn) return;
+    const msg = `Bonjour Barber C L'Hair ! ✂️\nJe confirme mon rendez-vous pris sur le site :\n\n👤 Client : ${name}\n📞 Tél : ${phone}\n📅 Date : ${dateFull} à ${time}\n💈 Prestation : ${service}\n📍 Lieu : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\n\nÀ très vite !`;
+    waBtn.href = `https://wa.me/33749153855?text=${encodeURIComponent(msg)}`;
 }
 
 // Week Navigation Buttons
