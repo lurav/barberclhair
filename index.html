@@ -27,7 +27,7 @@
     
     <!-- Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
-    <link rel="stylesheet" href="style.css?v=2.6">
+    <link rel="stylesheet" href="style.css?v=2.7">
 
     <!-- 🎃 Halloween Theme -->
     <style>
@@ -302,12 +302,20 @@
 
         /* ── 🎃 Boutons orange Halloween ─────────────────────── */
         .btn-accent,
-        .btn-primary {
+        .btn-primary,
+        .mobile-dock-cta {
             color: #ffffff !important;
             box-shadow: 0 4px 20px rgba(255,106,0,0.45) !important;
         }
+        .mobile-dock-cta {
+            background: linear-gradient(135deg, var(--hw-orange), var(--hw-orange-l)) !important;
+        }
+        .mobile-dock-cta svg {
+            color: #ffffff !important;
+        }
         .btn-accent:hover,
-        .btn-primary:hover {
+        .btn-primary:hover,
+        .mobile-dock-cta:active {
             color: #ffffff !important;
             box-shadow: 0 8px 30px rgba(255,106,0,0.65) !important;
         }

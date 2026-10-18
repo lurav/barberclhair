@@ -2602,12 +2602,12 @@ img {
         flex: 2;
         min-height: 48px;
         padding: 0.65rem 1rem;
-        background: linear-gradient(135deg, #d4af37 0%, #b89327 100%);
-        color: #000;
+        background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%);
+        color: #ffffff;
         font-weight: 700;
         font-size: 0.88rem;
         border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.35);
+        box-shadow: 0 4px 15px var(--accent-gold-glow);
         text-decoration: none;
         transition: transform 0.15s ease, box-shadow 0.2s ease;
     }
@@ -2615,7 +2615,7 @@ img {
     .mobile-dock-cta svg {
         width: 18px;
         height: 18px;
-        color: #000;
+        color: #ffffff;
     }
 
     .mobile-dock-cta:active {
