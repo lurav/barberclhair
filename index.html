@@ -1061,17 +1061,10 @@
                     <p class="success-reminder">Paiement sur place au salon. Merci d'arriver 5 minutes à l'avance.</p>
 
                     <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-top: 1.25rem;">
-                        <span style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-light); text-align: center;">Ajouter à l'agenda :</span>
-                        
-                        <!-- Agenda Buttons -->
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" id="btn-add-ical" class="btn btn-primary" style="flex: 1; padding: 0.75rem 0.5rem; font-size: 0.85rem; gap: 0.4rem; justify-content: center;" title="Ajouter à l'agenda iPhone / Apple / Outlook">
-                                <i data-feather="calendar" style="width: 16px; height: 16px;"></i> <span>Agenda iPhone</span>
-                            </button>
-                            <a id="btn-add-google" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="flex: 1; padding: 0.75rem 0.5rem; font-size: 0.85rem; gap: 0.4rem; justify-content: center; text-decoration: none;" title="Ajouter à Google Agenda">
-                                <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> <span>Google Agenda</span>
-                            </a>
-                        </div>
+                        <!-- Bouton Unique Agenda Téléphone -->
+                        <button type="button" id="btn-add-calendar" class="btn btn-primary w-full" style="padding: 0.85rem 1rem; font-size: 0.92rem; justify-content: center; gap: 0.5rem;" title="Ajouter à l'agenda de votre téléphone">
+                            <i data-feather="calendar" style="width: 18px; height: 18px;"></i> <span>Ajouter à mon agenda</span>
+                        </button>
 
                         <button type="button" class="btn btn-outline w-full" id="booking-success-close-btn" style="margin-top: 0.25rem;">Fermer</button>
                     </div>
@@ -1217,7 +1210,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <!-- Scripts -->
-    <script src="script.js?v=2.12"></script>
+    <script src="script.js?v=2.13"></script>
     <script>
         feather.replace();
     </script>

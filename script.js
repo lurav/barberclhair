@@ -622,7 +622,7 @@ if (bookingPhoneInput) {
     });
 }
 
-// Configuration des boutons Calendrier (Apple iCal / iPhone + Google Agenda) avec rappel 1h avant
+// Configuration du bouton Agenda Téléphone (Apple Agenda / Google Calendar / Android) avec rappel 1h avant
 function setupCalendarButtons(dateIso, time, service, clientName) {
     if (!dateIso || !time) return;
     const [year, month, day] = dateIso.split('-').map(Number);
@@ -637,21 +637,23 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
     const startStr = formatCalDate(startDate);
     const endStr = formatCalDate(endDate);
 
-    const title = `Barber C L'Hair — ${service}`;
+    const title = `Barber C L'Hair — Forfait : ${service}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
-    const descPlain = `Rendez-vous Barber C L'Hair\nPrestation : ${service}\nClient : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
-    const descICS = `Rendez-vous Barber C L'Hair\\nPrestation : ${service}\\nClient : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
+    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service}\nClient : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
+    const descICS = `Rendez-vous Barber C L'Hair\\nForfait : ${service}\\nClient : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
 
-    // 1. Bouton Google Agenda
-    const googleBtn = document.getElementById('btn-add-google');
-    if (googleBtn) {
-        googleBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
-    }
+    const calBtn = document.getElementById('btn-add-calendar');
+    if (!calBtn) return;
 
-    // 2. Bouton Agenda iPhone / Apple iCal (.ics) avec rappel 1h avant
-    const icalBtn = document.getElementById('btn-add-ical');
-    if (icalBtn) {
-        icalBtn.onclick = () => {
+    calBtn.onclick = () => {
+        const isAndroid = /Android/i.test(navigator.userAgent);
+
+        if (isAndroid) {
+            // Sur Android, redirection directe vers Google Agenda
+            const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
+            window.open(googleUrl, '_blank');
+        } else {
+            // Sur iPhone (iOS) et autres : fichier .ics standard avec alarme 1h avant (ouvre l'app Calendrier native)
             const icsContent = [
                 'BEGIN:VCALENDAR',
                 'VERSION:2.0',
@@ -685,8 +687,8 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
-        };
-    }
+        }
+    };
 }
 
 // Week Navigation Buttons
