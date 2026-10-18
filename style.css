@@ -2518,10 +2518,12 @@ img {
     }
 
     .modal-form input,
-    .modal-form select {
-        padding: 0.7rem 0.85rem;
-        font-size: 16px; /* Evite le zoom involontaire sur iOS */
+    .modal-form select,
+    #admin-pin-input {
+        padding: 0.75rem 0.85rem;
+        font-size: 16px !important; /* Force 16px pour éliminer tout zoom iOS/Safari */
         border-radius: 8px;
+        touch-action: manipulation;
     }
 
     .form-hint {
