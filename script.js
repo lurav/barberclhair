@@ -879,11 +879,41 @@ async function showAdminPlanning() {
             });
         } catch (e) {
             console.error("Erreur de chargement des réservations:", e);
-            adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement: ${e.message}</div>`;
+            const local = getLocalBookings(selectedIso);
+            if (local && local.size > 0) {
+                renderAdminLocalBookings(local);
+            } else {
+                adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement en ligne : ${e.message}</div>`;
+            }
         }
     } else {
-        adminBookingsList.innerHTML = '<div style="color: var(--text-light); padding: 1rem;">Base Firebase non connectée.</div>';
+        const local = getLocalBookings(selectedIso);
+        if (local && local.size > 0) {
+            renderAdminLocalBookings(local);
+        } else {
+            adminBookingsList.innerHTML = '<div style="color: var(--text-light); padding: 1rem;">Aucun rendez-vous local pour cette date.</div>';
+        }
     }
+}
+
+function renderAdminLocalBookings(localTimesSet) {
+    if (!adminBookingsList) return;
+    const sorted = Array.from(localTimesSet).sort();
+    adminBookingsList.innerHTML = '<div style="padding: 0.5rem; font-size: 0.8rem; color: var(--accent-gold); font-style: italic;">Rendez-vous enregistrés sur cet appareil :</div>';
+    sorted.forEach(time => {
+        const item = document.createElement('div');
+        item.className = 'admin-booking-item';
+        item.innerHTML = `
+            <div class="admin-booking-header">
+                <span class="admin-booking-time">${escapeHtml(time)}</span>
+                <span class="admin-booking-service-badge">✂️ RDV Réservé</span>
+            </div>
+            <div class="admin-booking-details">
+                <div class="admin-booking-client">Créneau réservé</div>
+            </div>
+        `;
+        adminBookingsList.appendChild(item);
+    });
 }
 
 function escapeHtml(str) {
