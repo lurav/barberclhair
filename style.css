@@ -1271,6 +1271,14 @@ img {
     align-items: center;
     gap: 0.35rem;
     min-width: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.cal-col:not(.disabled) {
+    cursor: pointer;
 }
 
 .cal-day-name {
@@ -2381,7 +2389,8 @@ img {
         transition: transform 0.15s ease, background 0.2s ease;
     }
 
-    .cal-date:active:not(.disabled) {
+    .cal-date:active:not(.disabled),
+    .cal-col:active:not(.disabled) .cal-date {
         transform: scale(0.92);
     }
 

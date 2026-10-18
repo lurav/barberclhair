@@ -206,6 +206,9 @@ function renderCalendarDays() {
     const prevWeekBtn = document.getElementById('prev-week');
     if (!daysContainer) return;
 
+    const wrapper = daysContainer.closest('.calendar-days-wrapper');
+    const savedScrollLeft = wrapper ? wrapper.scrollLeft : 0;
+
     daysContainer.innerHTML = '';
     const monday = getWeekStartDate(currentWeekOffset);
     const today = new Date();
@@ -261,6 +264,7 @@ function renderCalendarDays() {
 
         if (isDisabled) {
             dateBtn.classList.add('disabled');
+            col.classList.add('disabled');
             if (isMonday) {
                 const closedBadge = document.createElement('span');
                 closedBadge.className = 'cal-closed-badge';
@@ -272,20 +276,12 @@ function renderCalendarDays() {
                 return;
             }
         } else {
-            dateBtn.addEventListener('click', () => {
+            col.style.cursor = 'pointer';
+            col.addEventListener('click', (e) => {
+                e.preventDefault();
                 selectedDate = new Date(date);
                 renderCalendarDays();
                 loadSlotsForSelectedDate();
-
-                // Smooth scroll to time slots on mobile
-                if (window.innerWidth <= 768) {
-                    setTimeout(() => {
-                        const timeSlotsEl = document.querySelector('.time-slots');
-                        if (timeSlotsEl) {
-                            timeSlotsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }
-                    }, 120);
-                }
             });
         }
 
@@ -293,6 +289,10 @@ function renderCalendarDays() {
         col.appendChild(dateBtn);
         daysContainer.appendChild(col);
     });
+
+    if (wrapper && savedScrollLeft) {
+        wrapper.scrollLeft = savedScrollLeft;
+    }
 }
 
 // Load Slots and Listen to Bookings for Selected Date
