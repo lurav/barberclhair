@@ -793,37 +793,7 @@ if (document.readyState === 'loading') {
    MOBILE-SPECIFIC ENHANCEMENTS (SWIPE, TOAST, QUICK SELECTION)
    ========================================================================== */
 
-// Mobile Touch Swipe for Calendar Week Navigation
-const calendarWidget = document.getElementById('custom-booking');
-if (calendarWidget) {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    
-    calendarWidget.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-    }, { passive: true });
-    
-    calendarWidget.addEventListener('touchend', (e) => {
-        const touchEndX = e.changedTouches[0].screenX;
-        const touchEndY = e.changedTouches[0].screenY;
-        const diffX = touchEndX - touchStartX;
-        const diffY = touchEndY - touchStartY;
-        
-        // Trigger swipe only if predominantly horizontal
-        if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY)) {
-            if (diffX < 0) {
-                // Swipe left -> Next week
-                const nextBtn = document.getElementById('next-week');
-                if (nextBtn) nextBtn.click();
-            } else if (diffX > 0 && currentWeekOffset > 0) {
-                // Swipe right -> Previous week
-                const prevBtn = document.getElementById('prev-week');
-                if (prevBtn) prevBtn.click();
-            }
-        }
-    }, { passive: true });
-}
+
 
 // Mobile Toast Notification
 function showToast(message) {
