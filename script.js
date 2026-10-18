@@ -458,9 +458,24 @@ function openBookingModal(time) {
     const modalCard = bookingModal.querySelector('.booking-modal-card');
     if (modalCard) modalCard.scrollTop = 0;
 
+    // Ne pas auto-focus sur mobile (évite le clavier virtuel qui écrase le modal)
     const nameInput = document.getElementById('booking-name');
     if (nameInput && window.innerWidth > 768) {
         setTimeout(() => nameInput.focus(), 150);
+    }
+
+    // Adapter la hauteur du modal au clavier virtuel (iOS Safari / Android Chrome)
+    if (window.visualViewport && window.innerWidth <= 768) {
+        const onViewportResize = () => {
+            if (modalCard) {
+                const vvHeight = window.visualViewport.height;
+                modalCard.style.maxHeight = Math.min(vvHeight * 0.92, window.innerHeight * 0.92) + 'px';
+            }
+        };
+        window.visualViewport.addEventListener('resize', onViewportResize);
+        // Stocker pour cleanup à la fermeture
+        bookingModal._vpListener = onViewportResize;
+        onViewportResize();
     }
 
     if (window.feather) feather.replace();
@@ -471,6 +486,15 @@ function closeBookingModal() {
     bookingModal.classList.remove('show');
     bookingModal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+
+    // Nettoyage du listener visualViewport
+    if (bookingModal._vpListener && window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', bookingModal._vpListener);
+        bookingModal._vpListener = null;
+    }
+    // Réinitialise la hauteur forcée
+    const modalCard = bookingModal.querySelector('.booking-modal-card');
+    if (modalCard) modalCard.style.maxHeight = '';
 }
 
 if (modalOverlay) modalOverlay.addEventListener('click', closeBookingModal);

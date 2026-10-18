@@ -1364,12 +1364,15 @@ img {
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
-    transition: var(--transition);
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .slot-btn:hover:not(.booked):not(.past) {
@@ -1379,6 +1382,15 @@ img {
     border-color: var(--accent-gold);
     transform: translateY(-2px);
     box-shadow: 0 4px 15px var(--accent-gold-glow);
+}
+
+.slot-btn:active:not(.booked):not(.past) {
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
+    color: #000000;
+    font-weight: 700;
+    border-color: var(--accent-gold);
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px var(--accent-gold-glow);
 }
 
 .slot-btn.booked {
@@ -2395,11 +2407,12 @@ img {
         transform: scale(0.94);
     }
 
-    /* BOOKING MODAL (BOTTOM-SHEET ERGONOMIQUE MOBILE) */
     .booking-modal {
         align-items: flex-end;
         padding: 0;
         overflow: hidden;
+        height: 100%;
+        height: 100dvh;
     }
 
     .booking-modal-card {
@@ -2414,6 +2427,9 @@ img {
         transform: translateY(100%);
         transition: transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
         box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.9);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
 
     .booking-modal.show .booking-modal-card {
