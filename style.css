@@ -1789,6 +1789,171 @@ img {
     border-color: #ff6b6b;
 }
 
+/* Planning : filtre par coiffeur */
+.admin-barber-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.admin-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-light);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-color);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.admin-filter-chip:hover {
+    border-color: var(--accent-gold);
+}
+
+.admin-filter-chip.active {
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
+    border-color: var(--accent-gold);
+    color: #000;
+}
+
+.admin-filter-count {
+    min-width: 1.4em;
+    padding: 0.05rem 0.4rem;
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.admin-filter-chip.active .admin-filter-count {
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.admin-booking-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.admin-booking-barber-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.admin-booking-barber-badge.barber-color-0 {
+    background: rgba(212, 175, 55, 0.18);
+    color: var(--accent-gold-light);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.admin-booking-barber-badge.barber-color-1 {
+    background: rgba(125, 180, 255, 0.14);
+    color: #a9cbff;
+    border: 1px solid rgba(125, 180, 255, 0.35);
+}
+
+/* ==========================================================================
+   CHOIX DU COIFFEUR (réservation)
+   ========================================================================== */
+.barber-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.barber-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-color);
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.barber-option:hover {
+    border-color: var(--accent-gold);
+    background: rgba(212, 175, 55, 0.08);
+    transform: translateY(-2px);
+}
+
+.barber-option.active {
+    border-color: var(--accent-gold);
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.18), rgba(243, 207, 122, 0.06));
+    box-shadow: 0 4px 18px var(--accent-gold-glow);
+}
+
+.barber-avatar {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--accent-gold);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    background: rgba(212, 175, 55, 0.08);
+    transition: var(--transition-fast);
+}
+
+.barber-option.active .barber-avatar {
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
+    color: #000;
+    border-color: var(--accent-gold);
+}
+
+.barber-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.barber-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.barber-hint {
+    font-size: 0.72rem;
+    color: var(--text-light);
+}
+
+@media screen and (max-width: 768px) {
+    .barber-options {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .barber-option {
+        padding: 0.7rem 0.9rem;
+    }
+
+    .barber-option:hover {
+        transform: none;
+    }
+}
+
+
 
 /* ==========================================================================
    CONTACT

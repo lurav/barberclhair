@@ -970,9 +970,17 @@
                     </div>
                     
                     <div class="calendar-body">
+                        <!-- Barber Picker -->
+                        <div class="barber-picker">
+                            <span class="cal-section-subtitle">1. Choisissez votre coiffeur</span>
+                            <div class="barber-options" id="barber-options" role="radiogroup" aria-label="Choix du coiffeur">
+                                <!-- Dynamic barbers injected by script.js -->
+                            </div>
+                        </div>
+
                         <!-- Days Grid -->
                         <div class="calendar-days-wrapper">
-                            <span class="cal-section-subtitle">1. Choisissez un jour</span>
+                            <span class="cal-section-subtitle">2. Choisissez un jour</span>
                             <div class="calendar-days" id="calendar-days-container">
                                 <!-- Dynamic days injected by script.js -->
                             </div>
@@ -980,7 +988,7 @@
 
                         <!-- Time Slots (shown for selected day) -->
                         <div class="time-slots">
-                            <span class="cal-section-subtitle">2. Choisissez un créneau horaire</span>
+                            <span class="cal-section-subtitle">3. Choisissez un créneau horaire</span>
                             <h4 class="time-slots-title" id="selected-date-title">Sélectionnez une date</h4>
                             <div class="slots-grid" id="slots-container">
                                 <div class="slots-loading">Chargement des créneaux...</div>
@@ -1054,6 +1062,7 @@
                     <p class="success-desc">Votre créneau est maintenant réservé et bloqué dans notre planning.</p>
                     <div class="success-card">
                         <p><strong><i data-feather="calendar"></i> Date :</strong> <span id="success-datetime"></span></p>
+                        <p><strong><i data-feather="user-check"></i> Coiffeur :</strong> <span id="success-barber"></span></p>
                         <p><strong><i data-feather="scissors"></i> Prestation :</strong> <span id="success-service"></span></p>
                         <p><strong><i data-feather="user"></i> Client :</strong> <span id="success-client"></span></p>
                         <p><strong><i data-feather="map-pin"></i> Lieu :</strong> 33 rue de l'hôtel de ville, Aulnoye-Aymeries</p>
@@ -1093,6 +1102,9 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <span id="admin-filter-date" style="font-weight: 600; color: var(--accent-color);"></span>
                         <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Actualiser</button>
+                    </div>
+                    <div class="admin-barber-filter" id="admin-barber-filter" role="tablist" aria-label="Filtrer par coiffeur">
+                        <!-- Dynamic filter injected by script.js -->
                     </div>
                     <div id="admin-bookings-list" class="admin-bookings-list">
                         <!-- Bookings list -->

@@ -139,6 +139,91 @@ const MONTH_NAMES = [
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ];
 
+// ==========================================================================
+// COIFFEURS DU SALON
+// Pour changer un nom : modifier "name". Ne plus changer "id" une fois en ligne
+// (il sert à relier les rendez-vous enregistrés au bon coiffeur).
+// Les anciens rendez-vous (avant l'ajout du 2e coiffeur) sont attribués au 1er.
+// ==========================================================================
+const BARBERS = [
+    { id: 'isma', name: 'Isma' },
+    { id: 'karim', name: 'Karim' }
+];
+const ANY_BARBER = 'any';
+let selectedBarber = ANY_BARBER;
+let currentBookedMap = new Map(); // "HH:MM" -> Set(barberId)
+let adminBarberFilter = 'all';
+
+function getBarberName(id) {
+    const b = BARBERS.find(x => x.id === id);
+    return b ? b.name : BARBERS[0].name;
+}
+
+function bookingBarberId(data) {
+    return (data && data.barber && BARBERS.some(b => b.id === data.barber)) ? data.barber : BARBERS[0].id;
+}
+
+function addToBookedMap(map, time, barberId) {
+    if (!map.has(time)) map.set(time, new Set());
+    map.get(time).add(barberId);
+}
+
+function getFreeBarbers(time, bookedMap) {
+    const busy = bookedMap.get(time) || new Set();
+    return BARBERS.filter(b => !busy.has(b.id));
+}
+
+// « Peu importe » : on prend le coiffeur libre qui a le moins de RDV ce jour-là
+function pickBarberForSlot(time, bookedMap) {
+    const free = getFreeBarbers(time, bookedMap);
+    if (free.length === 0) return null;
+    const countFor = (id) => {
+        let n = 0;
+        bookedMap.forEach(set => { if (set.has(id)) n++; });
+        return n;
+    };
+    return free.slice().sort((a, b) => countFor(a.id) - countFor(b.id))[0];
+}
+
+function isSlotTaken(time, bookedMap, barberChoice) {
+    const busy = bookedMap.get(time) || new Set();
+    if (barberChoice === ANY_BARBER) return BARBERS.every(b => busy.has(b.id));
+    return busy.has(barberChoice);
+}
+
+// Boutons de choix du coiffeur
+function renderBarberOptions() {
+    const container = document.getElementById('barber-options');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const options = [{ id: ANY_BARBER, name: 'Peu importe', hint: 'Premier disponible' }]
+        .concat(BARBERS.map(b => ({ id: b.id, name: b.name, hint: 'Coiffeur' })));
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'barber-option' + (selectedBarber === opt.id ? ' active' : '');
+        btn.id = `barber-option-${opt.id}`;
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', selectedBarber === opt.id ? 'true' : 'false');
+        const initial = opt.id === ANY_BARBER ? '★' : opt.name.trim().charAt(0).toUpperCase();
+        btn.innerHTML = `
+            <span class="barber-avatar">${escapeHtml(initial)}</span>
+            <span class="barber-text">
+                <span class="barber-name">${escapeHtml(opt.name)}</span>
+                <span class="barber-hint">${escapeHtml(opt.hint)}</span>
+            </span>
+        `;
+        btn.addEventListener('click', () => {
+            selectedBarber = opt.id;
+            renderBarberOptions();
+            renderSlots(currentBookedMap);
+        });
+        container.appendChild(btn);
+    });
+}
+
 function getSlotsForDay(dayOfWeek) {
     if (dayOfWeek === 1) return []; // Lundi : fermé
     if (dayOfWeek === 0) {
@@ -319,14 +404,14 @@ function loadSlotsForSelectedDate() {
         unsubscribeBookings = db.collection('bookings')
             .where('date', '==', selectedIso)
             .onSnapshot((snapshot) => {
-                const bookedTimes = new Set();
+                const bookedMap = new Map();
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     if (data && data.time) {
-                        bookedTimes.add(data.time);
+                        addToBookedMap(bookedMap, data.time, bookingBarberId(data));
                     }
                 });
-                renderSlots(bookedTimes);
+                renderSlots(bookedMap);
             }, (error) => {
                 console.warn("Écouteur Firestore non actif (vérifier les règles Firestore) :", error);
                 // Fallback to local storage or empty booked list
@@ -340,30 +425,40 @@ function loadSlotsForSelectedDate() {
 }
 
 // Local Storage Fallback for Bookings
+// Format stocké : ["09:30|coiffeur2", ...] (les anciennes entrées "09:30" = coiffeur 1)
 function getLocalBookings(dateIso) {
+    const map = new Map();
     try {
         const stored = localStorage.getItem(`barber_bookings_${dateIso}`);
-        return stored ? new Set(JSON.parse(stored)) : new Set();
+        const list = stored ? JSON.parse(stored) : [];
+        list.forEach(entry => {
+            const [time, barberId] = String(entry).split('|');
+            addToBookedMap(map, time, bookingBarberId({ barber: barberId }));
+        });
     } catch (e) {
-        return new Set();
+        // ignore
     }
+    return map;
 }
 
-function saveLocalBooking(dateIso, time) {
+function saveLocalBooking(dateIso, time, barberId) {
     try {
-        const current = getLocalBookings(dateIso);
-        current.add(time);
-        localStorage.setItem(`barber_bookings_${dateIso}`, JSON.stringify(Array.from(current)));
+        const key = `barber_bookings_${dateIso}`;
+        const stored = localStorage.getItem(key);
+        const list = new Set(stored ? JSON.parse(stored) : []);
+        list.add(`${time}|${barberId || BARBERS[0].id}`);
+        localStorage.setItem(key, JSON.stringify(Array.from(list)));
     } catch (e) {
         console.error(e);
     }
 }
 
 // Render Time Slots
-function renderSlots(bookedTimes = new Set()) {
+function renderSlots(bookedMap = new Map()) {
     const slotsContainer = document.getElementById('slots-container');
     if (!slotsContainer) return;
 
+    currentBookedMap = bookedMap;
     slotsContainer.innerHTML = '';
     const dayOfWeek = selectedDate.getDay();
     const availableSlots = getSlotsForDay(dayOfWeek);
@@ -387,7 +482,7 @@ function renderSlots(bookedTimes = new Set()) {
 
         // Check if slot is already in the past today
         const isPastSlot = isToday && (slotHour < currentHour || (slotHour === currentHour && slotMin <= currentMin + 10));
-        const isBooked = bookedTimes.has(time);
+        const isBooked = isSlotTaken(time, bookedMap, selectedBarber);
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -437,11 +532,15 @@ function openBookingModal(time) {
     currentSlotForBooking = {
         dateIso: formatDateISO(selectedDate),
         dateFull: formatDateFull(selectedDate),
-        time: time
+        time: time,
+        barberChoice: selectedBarber
     };
 
     if (modalRecap) {
-        modalRecap.textContent = `${currentSlotForBooking.dateFull} à ${time}`;
+        const withWho = selectedBarber === ANY_BARBER
+            ? 'premier coiffeur disponible'
+            : `avec ${getBarberName(selectedBarber)}`;
+        modalRecap.textContent = `${currentSlotForBooking.dateFull} à ${time} — ${withWho}`;
     }
 
     // Reset steps
@@ -533,14 +632,65 @@ if (bookingForm) {
         if (btnSubmitText) btnSubmitText.textContent = "Réservation en cours...";
         if (bookingError) bookingError.style.display = 'none';
 
+        // Vérification de dernière seconde : qui est encore libre sur ce créneau ?
+        let latestMap = currentBookedMap;
+        if (db) {
+            try {
+                const snap = await Promise.race([
+                    db.collection('bookings').where('date', '==', currentSlotForBooking.dateIso).get(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
+                ]);
+                latestMap = new Map();
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    if (d && d.time) addToBookedMap(latestMap, d.time, bookingBarberId(d));
+                });
+            } catch (checkErr) {
+                console.warn("Vérification en direct impossible, utilisation des dernières données :", checkErr);
+            }
+        }
+
+        let assignedBarber = null;
+        if (currentSlotForBooking.barberChoice === ANY_BARBER) {
+            assignedBarber = pickBarberForSlot(currentSlotForBooking.time, latestMap);
+        } else if (!isSlotTaken(currentSlotForBooking.time, latestMap, currentSlotForBooking.barberChoice)) {
+            assignedBarber = BARBERS.find(b => b.id === currentSlotForBooking.barberChoice) || null;
+        }
+
+        if (!assignedBarber) {
+            showBookingError("Désolé, ce créneau vient d'être réservé. Veuillez choisir un autre horaire ou un autre coiffeur.");
+            if (btnSubmitBooking) btnSubmitBooking.disabled = false;
+            if (btnSubmitText) btnSubmitText.textContent = 'Confirmer mon rendez-vous';
+            renderSlots(latestMap);
+            return;
+        }
+
         const bookingPayload = {
             date: currentSlotForBooking.dateIso,
             time: currentSlotForBooking.time,
+            barber: assignedBarber.id,
+            barberName: assignedBarber.name,
             service: serviceVal,
             clientName: nameVal,
             clientPhone: phoneVal,
             clientNote: noteVal || '',
             createdAt: (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
+        };
+
+        const showSuccess = () => {
+            document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
+            const successBarber = document.getElementById('success-barber');
+            if (successBarber) successBarber.textContent = assignedBarber.name;
+            document.getElementById('success-service').textContent = serviceVal;
+            document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
+            setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal, assignedBarber.name);
+
+            if (bookingFormStep) bookingFormStep.style.display = 'none';
+            if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
+            bookingForm.reset();
+            loadSlotsForSelectedDate();
+
+            if (window.feather) feather.replace();
         };
 
         try {
@@ -550,44 +700,16 @@ if (bookingForm) {
                     db.collection('bookings').add(bookingPayload),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3500))
                 ]);
-            } else {
-                saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time);
             }
 
             // Also keep in localStorage as safety backup
-            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time);
-
-            // Update Success Step UI
-            document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
-            document.getElementById('success-service').textContent = serviceVal;
-            document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
-            setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal);
-
-            if (bookingFormStep) bookingFormStep.style.display = 'none';
-            if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
-
-            // Reset form
-            bookingForm.reset();
-
-            // Refresh slots view immediately
-            loadSlotsForSelectedDate();
-
-            if (window.feather) feather.replace();
+            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, assignedBarber.id);
+            showSuccess();
         } catch (err) {
             console.warn("Enregistrement en ligne différé ou hors-ligne :", err);
             // Save locally so the client's reservation is guaranteed
-            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time);
-            document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
-            document.getElementById('success-service').textContent = serviceVal;
-            document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
-            setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal);
-
-            if (bookingFormStep) bookingFormStep.style.display = 'none';
-            if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
-            bookingForm.reset();
-            loadSlotsForSelectedDate();
-
-            if (window.feather) feather.replace();
+            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, assignedBarber.id);
+            showSuccess();
         } finally {
             if (btnSubmitBooking) btnSubmitBooking.disabled = false;
             if (btnSubmitText) btnSubmitText.textContent = 'Confirmer mon rendez-vous';
@@ -631,7 +753,7 @@ if (bookingPhoneInput) {
 }
 
 // Configuration du bouton Agenda Téléphone (Apple Agenda / Google Calendar / Android) avec rappel 1h avant
-function setupCalendarButtons(dateIso, time, service, clientName) {
+function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
     if (!dateIso || !time) return;
     const [year, month, day] = dateIso.split('-').map(Number);
     const [hour, min] = time.split(':').map(Number);
@@ -646,10 +768,11 @@ function setupCalendarButtons(dateIso, time, service, clientName) {
     const startUtcStr = formatCalDateUTC(startDate);
     const endUtcStr = formatCalDateUTC(endDate);
 
+    const barberLine = barberName ? `Coiffeur : ${barberName}` : '';
     const title = `Barber C L'Hair — Forfait : ${service}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
-    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service}\nClient : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
-    const descICS = `Rendez-vous Barber C L'Hair\\nForfait : ${service}\\nClient : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
+    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service}\n${barberLine ? barberLine + '\n' : ''}Client : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
+    const descICS = `Rendez-vous Barber C L'Hair\\nForfait : ${service}\\n${barberLine ? barberLine + '\\n' : ''}Client : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
 
     const calBtn = document.getElementById('btn-add-calendar');
     if (!calBtn) return;
@@ -819,6 +942,31 @@ if (adminRefreshBtn) {
     adminRefreshBtn.addEventListener('click', showAdminPlanning);
 }
 
+// Filtre par coiffeur dans le planning (Tous / Coiffeur 1 / Coiffeur 2), avec le nombre de RDV
+function renderAdminBarberFilter(counts = {}) {
+    const container = document.getElementById('admin-barber-filter');
+    if (!container) return;
+    container.innerHTML = '';
+    const total = Object.values(counts).reduce((s, n) => s + n, 0);
+    const options = [{ id: 'all', name: 'Tous', count: total }]
+        .concat(BARBERS.map(b => ({ id: b.id, name: b.name, count: counts[b.id] || 0 })));
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = `admin-filter-${opt.id}`;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', adminBarberFilter === opt.id ? 'true' : 'false');
+        btn.className = 'admin-filter-chip' + (adminBarberFilter === opt.id ? ' active' : '');
+        btn.innerHTML = `${escapeHtml(opt.name)} <span class="admin-filter-count">${opt.count}</span>`;
+        btn.addEventListener('click', () => {
+            adminBarberFilter = opt.id;
+            showAdminPlanning();
+        });
+        container.appendChild(btn);
+    });
+}
+
 async function showAdminPlanning() {
     if (adminAuthBox) adminAuthBox.style.display = 'none';
     if (adminContentBox) adminContentBox.style.display = 'block';
@@ -837,26 +985,39 @@ async function showAdminPlanning() {
                 .where('date', '==', selectedIso)
                 .get();
 
-            const bookings = [];
+            const allBookings = [];
             snap.forEach(doc => {
-                bookings.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                allBookings.push({ id: doc.id, ...data, barberId: bookingBarberId(data) });
             });
 
-            // Sort by time
-            bookings.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+            const counts = {};
+            allBookings.forEach(b => { counts[b.barberId] = (counts[b.barberId] || 0) + 1; });
+            renderAdminBarberFilter(counts);
+
+            const bookings = adminBarberFilter === 'all'
+                ? allBookings
+                : allBookings.filter(b => b.barberId === adminBarberFilter);
+
+            // Sort by time, then by barber
+            bookings.sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.barberId.localeCompare(b.barberId));
 
             if (bookings.length === 0) {
-                adminBookingsList.innerHTML = '<div style="text-align: center; color: var(--text-light); padding: 1.5rem; font-style: italic;">Aucun rendez-vous enregistré pour cette journée.</div>';
+                const who = adminBarberFilter === 'all' ? '' : ` pour ${escapeHtml(getBarberName(adminBarberFilter))}`;
+                adminBookingsList.innerHTML = `<div style="text-align: center; color: var(--text-light); padding: 1.5rem; font-style: italic;">Aucun rendez-vous enregistré${who} pour cette journée.</div>`;
                 return;
             }
 
             adminBookingsList.innerHTML = '';
             bookings.forEach(b => {
+                const barberName = getBarberName(b.barberId);
+                const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === b.barberId));
                 const item = document.createElement('div');
                 item.className = 'admin-booking-item';
                 item.innerHTML = `
                     <div class="admin-booking-header">
                         <span class="admin-booking-time">${escapeHtml(b.time || '')}</span>
+                        <span class="admin-booking-barber-badge barber-color-${barberIndex}">👤 ${escapeHtml(barberName)}</span>
                         <span class="admin-booking-service-badge">✂️ ${escapeHtml(b.service || 'Coupe')}</span>
                     </div>
                     <div class="admin-booking-details">
@@ -873,7 +1034,7 @@ async function showAdminPlanning() {
                 cancelBtn.className = 'admin-cancel-btn';
                 cancelBtn.textContent = 'Supprimer';
                 cancelBtn.addEventListener('click', async () => {
-                    if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} ?`)) {
+                    if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
                         await db.collection('bookings').doc(b.id).delete();
                         showAdminPlanning();
                         loadSlotsForSelectedDate();
@@ -889,7 +1050,7 @@ async function showAdminPlanning() {
             if (local && local.size > 0) {
                 renderAdminLocalBookings(local);
             } else {
-                adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement en ligne : ${e.message}</div>`;
+                adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement en ligne : ${escapeHtml(e.message)}</div>`;
             }
         }
     } else {
@@ -902,16 +1063,24 @@ async function showAdminPlanning() {
     }
 }
 
-function renderAdminLocalBookings(localTimesSet) {
+function renderAdminLocalBookings(localMap) {
     if (!adminBookingsList) return;
-    const sorted = Array.from(localTimesSet).sort();
+    const entries = [];
+    localMap.forEach((barberSet, time) => {
+        barberSet.forEach(barberId => {
+            if (adminBarberFilter === 'all' || adminBarberFilter === barberId) entries.push({ time, barberId });
+        });
+    });
+    entries.sort((a, b) => a.time.localeCompare(b.time) || a.barberId.localeCompare(b.barberId));
     adminBookingsList.innerHTML = '<div style="padding: 0.5rem; font-size: 0.8rem; color: var(--accent-gold); font-style: italic;">Rendez-vous enregistrés sur cet appareil :</div>';
-    sorted.forEach(time => {
+    entries.forEach(({ time, barberId }) => {
+        const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === barberId));
         const item = document.createElement('div');
         item.className = 'admin-booking-item';
         item.innerHTML = `
             <div class="admin-booking-header">
                 <span class="admin-booking-time">${escapeHtml(time)}</span>
+                <span class="admin-booking-barber-badge barber-color-${barberIndex}">👤 ${escapeHtml(getBarberName(barberId))}</span>
                 <span class="admin-booking-service-badge">✂️ RDV Réservé</span>
             </div>
             <div class="admin-booking-details">
@@ -947,10 +1116,12 @@ function escapeHtml(str) {
 // Initial Launch of Calendar
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        renderBarberOptions();
         renderCalendarDays();
         loadSlotsForSelectedDate();
     });
 } else {
+    renderBarberOptions();
     renderCalendarDays();
     loadSlotsForSelectedDate();
 }
