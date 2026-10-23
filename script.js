@@ -863,6 +863,7 @@ async function showAdminPlanning() {
                         <div class="admin-booking-client">${escapeHtml(b.clientName || 'Client')}</div>
                         <div class="admin-booking-meta">
                             <span>📞 <a href="tel:${escapeHtml(b.clientPhone || '')}">${escapeHtml(b.clientPhone || 'Non renseigné')}</a></span>
+                            ${formatCreatedAt(b.createdAt) ? `<div style="margin-top: 0.3rem; font-size: 0.8rem; opacity: 0.75;">🗓️ Réservé le ${formatCreatedAt(b.createdAt)}</div>` : ''}
                             ${b.clientNote ? `<div style="margin-top: 0.3rem;"><em>Note: ${escapeHtml(b.clientNote)}</em></div>` : ''}
                         </div>
                     </div>
@@ -919,6 +920,18 @@ function renderAdminLocalBookings(localTimesSet) {
         `;
         adminBookingsList.appendChild(item);
     });
+}
+
+// Format de la date de prise de RDV (ex: "23/10/2026 à 12h05")
+function formatCreatedAt(val) {
+    if (!val) return '';
+    let d = null;
+    if (typeof val.toDate === 'function') d = val.toDate();
+    else if (val.seconds) d = new Date(val.seconds * 1000);
+    else d = new Date(val);
+    if (!d || isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} à ${pad(d.getHours())}h${pad(d.getMinutes())}`;
 }
 
 function escapeHtml(str) {
