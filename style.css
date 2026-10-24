@@ -2929,3 +2929,12 @@ img {
     background: var(--accent-gold);
     color: #000000;
 }
+
+/* ==========================================================================
+   HORS SAISON HALLOWEEN
+   ========================================================================== */
+.hw-off .hw-edition-badge,
+.hw-off #hw-toggle-btn {
+    display: none !important;
+}
+

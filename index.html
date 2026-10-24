@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Barber c l'hair | Coiffeur & Barbier à Aulnoye-Aymeries (59620) • RDV en ligne</title>
     <meta name="description" content="Barber c l'hair : Salon de coiffure homme et barbier à Aulnoye-Aymeries (59620). Dégradés américains, taille de barbe, soins. Proche de Leval, Berlaimont, Bachant, Pont-sur-Sambre, Hautmont. Réservez votre créneau en 30 secondes.">
     <link rel="canonical" href="https://lurav.github.io/barberclhair/">
@@ -15,22 +15,27 @@
     
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://barber-c-l-hair.fr/">
+    <meta property="og:url" content="https://lurav.github.io/barberclhair/">
+    <meta property="og:locale" content="fr_FR">
     <meta property="og:title" content="Barber c l'hair | Coiffeur & Barbier à Aulnoye-Aymeries (59620)">
     <meta property="og:description" content="Salon barbier & coiffure homme d'exception. Réservez votre rendez-vous en ligne en direct.">
-    <meta property="og:image" content="IMG_1006.JPEG">
+    <meta property="og:image" content="https://lurav.github.io/barberclhair/images/IMG_1006.jpg">
+    <meta property="og:image:width" content="1600">
+    <meta property="og:image:height" content="1200">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Préchargement de l'image principale -->
+    <link rel="preload" as="image" href="images/IMG_1006.jpg" fetchpriority="high">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <!-- Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
-    <link rel="stylesheet" href="style.css?v=2.19">
+    <link rel="stylesheet" href="style.css?v=2.20">
 
-    <!-- 🎃 Halloween Theme -->
-    <style>
+    <!-- 🎃 Halloween Theme (actif automatiquement du 1er octobre au 2 novembre) -->
+    <style id="hw-style">
         /* ── Halloween Variables ─────────────────────────────── */
         :root {
             --hw-orange:   #ff6a00;
@@ -386,6 +391,17 @@
             box-shadow: 0 8px 30px rgba(255,106,0,0.65) !important;
         }
     </style>
+    <script>
+        (function () {
+            var now = new Date(), m = now.getMonth(), d = now.getDate();
+            var inSeason = m === 9 || (m === 10 && d <= 2);
+            if (!inSeason) {
+                var s = document.getElementById('hw-style');
+                if (s) s.remove();
+                document.documentElement.classList.add('hw-off');
+            }
+        })();
+    </script>
 
     <!-- Structured Data (Schema.org BarberShop) -->
     <script type="application/ld+json">
@@ -393,9 +409,9 @@
       "@context": "https://schema.org",
       "@type": "BarberShop",
       "name": "Barber c l'hair",
-      "image": "IMG_1006.JPEG",
-      "@id": "https://barber-c-l-hair.fr/#barbershop",
-      "url": "https://barber-c-l-hair.fr/",
+      "image": "https://lurav.github.io/barberclhair/images/IMG_1006.jpg",
+      "@id": "https://lurav.github.io/barberclhair/#barbershop",
+      "url": "https://lurav.github.io/barberclhair/",
       "telephone": "+33749153855",
       "priceRange": "10€ - 20€",
       "currenciesAccepted": "EUR",
@@ -422,8 +438,9 @@
       "areaServed": [
         {"@type": "AdministrativeArea", "name": "Aulnoye-Aymeries"},
         {"@type": "AdministrativeArea", "name": "Leval"},
-        {"@type": "Berlaimont", "name": "Berlaimont"},
-        {"@type": "Bachant", "name": "Bachant"},
+        {"@type": "AdministrativeArea", "name": "Berlaimont"},
+        {"@type": "AdministrativeArea", "name": "Bachant"},
+        {"@type": "AdministrativeArea", "name": "Saint-Remy-du-Nord"},
         {"@type": "AdministrativeArea", "name": "Pont-sur-Sambre"},
         {"@type": "AdministrativeArea", "name": "Hautmont"},
         {"@type": "AdministrativeArea", "name": "Maubeuge"}
@@ -542,7 +559,7 @@
           "name": "Proposez-vous des soins de la barbe ?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Oui, de la taille simple au rituel complet avec serviette chaude et huiles de soin, nous prenons soin de votre barbe selon vos envies."
+            "text": "Oui, notre prestation Taille de Barbe (10€) comprend la taille de précision, le traçage des contours et un soin hydratant de finition. Elle est aussi incluse dans la Formule Complète (20€)."
           }
         },
         {
@@ -593,7 +610,7 @@
                 <div class="nav-drawer-footer">
                     <a href="tel:0749153855" class="nav-drawer-phone"><i data-feather="phone"></i> 07 49 15 38 55</a>
                     <p class="nav-drawer-address"><i data-feather="map-pin"></i> 33 rue de l'hôtel de ville, Aulnoye</p>
-                    <span class="nav-drawer-status">Mardi - Samedi : 9h-19h • Dim : 10h-14h</span>
+                    <span class="nav-drawer-status">Mar-Sam : 9h-19h (Ven : pause 12h30-14h) • Dim : 10h-14h</span>
                 </div>
 
                 <div class="nav-close" id="nav-close">
@@ -615,7 +632,7 @@
         <!-- Hero Section -->
         <section class="hero section" id="home">
             <div class="hero-bg">
-                <img src="IMG_1006.JPEG" alt="Salon Barber c l'hair" class="hero-img">
+                <img src="images/IMG_1006.jpg" alt="Intérieur du salon Barber c l'hair à Aulnoye-Aymeries" class="hero-img" width="1600" height="1200" fetchpriority="high" decoding="async">
             </div>
             <div class="hero-content container">
                 <div class="hero-badge reveal">
@@ -722,7 +739,7 @@
         <section class="about section container" id="about">
             <div class="about-grid">
                 <div class="about-img">
-                    <img src="IMG_1007.JPEG" alt="Intérieur Barber c l'hair">
+                    <img src="images/IMG_1007.jpg" alt="Poste de coupe du salon Barber c l'hair" width="1200" height="1600" loading="lazy" decoding="async">
                 </div>
                 <div class="about-content">
                     <h2 class="section-title reveal">L'Esprit Barber c l'hair</h2>
@@ -751,23 +768,23 @@
                 </div>
                 <div class="gallery-grid">
                     <div class="gallery-item reveal">
-                        <img src="IMG_1006.JPEG" alt="Réalisation Barber c l'hair">
+                        <img src="images/IMG_1006.jpg" alt="Salon de coiffure homme Barber c l'hair, vue d'ensemble" width="1600" height="1200" loading="lazy" decoding="async">
                         <div class="gallery-overlay"><i data-feather="plus"></i></div>
                     </div>
                     <div class="gallery-item reveal">
-                        <img src="IMG_1007.JPEG" alt="Réalisation Barber c l'hair">
+                        <img src="images/IMG_1007.jpg" alt="Fauteuil de barbier et miroir au salon Barber c l'hair" width="1200" height="1600" loading="lazy" decoding="async">
                         <div class="gallery-overlay"><i data-feather="plus"></i></div>
                     </div>
                     <div class="gallery-item reveal">
-                        <img src="IMG_1008.JPEG" alt="Réalisation Barber c l'hair">
+                        <img src="images/IMG_1008.jpg" alt="Coupe homme dégradé réalisée à Aulnoye-Aymeries" width="1200" height="1600" loading="lazy" decoding="async">
                         <div class="gallery-overlay"><i data-feather="plus"></i></div>
                     </div>
                     <div class="gallery-item reveal">
-                        <img src="IMG_1009.JPEG" alt="Réalisation Barber c l'hair">
+                        <img src="images/IMG_1009.jpg" alt="Détail d'une coupe et finitions par le barbier" width="1200" height="1600" loading="lazy" decoding="async">
                         <div class="gallery-overlay"><i data-feather="plus"></i></div>
                     </div>
                     <div class="gallery-item reveal">
-                        <img src="IMG_1010.JPEG" alt="Réalisation Barber c l'hair">
+                        <img src="images/IMG_1010.jpg" alt="Espace d'accueil du salon Barber c l'hair" width="1200" height="1600" loading="lazy" decoding="async">
                         <div class="gallery-overlay"><i data-feather="plus"></i></div>
                     </div>
                 </div>
@@ -916,7 +933,7 @@
                         <i data-feather="chevron-down"></i>
                     </div>
                     <div class="faq-answer">
-                        <p>Oui, de la taille simple au rituel complet avec serviette chaude et huiles de soin, nous prenons soin de votre barbe selon vos envies.</p>
+                        <p>Oui, notre prestation Taille de Barbe (10€) comprend la taille de précision, le traçage des contours et un soin hydratant de finition. Elle est aussi incluse dans la Formule Complète (20€).</p>
                     </div>
                 </div>
                 <div class="faq-item reveal">
@@ -1119,7 +1136,7 @@
                 <div class="contact-info" style="grid-column: 1 / -1; max-width: 800px; margin: 0 auto;">
                     <h2 class="section-title reveal" style="text-align: center;">Nous Trouver</h2>
                     <div class="contact-img reveal" style="margin-bottom: 2rem; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; height: 350px;">
-                        <img src="IMG_1006.JPEG" alt="Localisation" style="width: 100%; height: 100%; object-fit: cover;">
+                        <img src="images/IMG_1006.jpg" alt="Façade et intérieur du salon, 33 rue de l'hôtel de ville" width="1600" height="1200" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
                     <div class="contact-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem;">
                         <div class="contact-item reveal">
@@ -1221,15 +1238,21 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
+    <!-- Icons (version figée) -->
+    <script src="https://unpkg.com/feather-icons@4.29.2/dist/feather.min.js"></script>
+
     <!-- Scripts -->
-    <script src="script.js?v=2.19"></script>
+    <script src="script.js?v=2.23"></script>
     <script>
-        feather.replace();
+        if (window.feather) feather.replace();
     </script>
 
     <!-- 🎃 Halloween Decorations -->
     <script>
     (function() {
+        // Hors saison : pas de décorations
+        if (document.documentElement.classList.contains('hw-off')) return;
+
         /* ── Spiderweb SVG ── */
         const webSVG = `<svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
           <line x1="0" y1="0" x2="160" y2="160" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>

@@ -247,6 +247,7 @@ function getSlotsForDay(dayOfWeek) {
 
 // Calendar State
 let currentWeekOffset = 0; // 0 = current week, 1 = next week, etc.
+const MAX_WEEK_OFFSET = 8; // Réservation possible jusqu'à 8 semaines à l'avance
 let selectedDate = new Date();
 // If today is Monday, auto-select Tuesday
 if (selectedDate.getDay() === 1) {
@@ -284,6 +285,47 @@ function getWeekStartDate(offset = 0) {
     return monday;
 }
 
+// Marge minimale avant un créneau pour pouvoir le réserver (en minutes)
+const SLOT_MARGIN_MIN = 10;
+
+// Un créneau est « passé » s'il commence dans moins de SLOT_MARGIN_MIN minutes (ou déjà commencé)
+function isSlotPast(date, time) {
+    const [h, m] = time.split(':').map(Number);
+    const slot = new Date(date);
+    slot.setHours(h, m, 0, 0);
+    return slot.getTime() <= Date.now() + SLOT_MARGIN_MIN * 60 * 1000;
+}
+
+function hasBookableSlot(date) {
+    return getSlotsForDay(date.getDay()).some(t => !isSlotPast(date, t));
+}
+
+// Numéro de semaine (offset) contenant une date donnée
+function weekOffsetOf(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const diffToMonday = (d.getDay() === 0 ? -6 : 1) - d.getDay();
+    d.setDate(d.getDate() + diffToMonday);
+    return Math.round((d - getWeekStartDate(0)) / (7 * 24 * 60 * 60 * 1000));
+}
+
+// Premier jour à partir de `start` qui a encore au moins un créneau réservable
+function firstBookableDayFrom(start) {
+    const d = new Date(start);
+    d.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 14; i++) {
+        if (hasBookableSlot(d)) return d;
+        d.setDate(d.getDate() + 1);
+    }
+    return new Date(start);
+}
+
+// Sélectionne automatiquement le prochain jour réservable et la bonne semaine
+function resetToFirstBookableDay() {
+    selectedDate = firstBookableDayFrom(new Date());
+    currentWeekOffset = weekOffsetOf(selectedDate);
+}
+
 // Render Calendar Days
 function renderCalendarDays() {
     const daysContainer = document.getElementById('calendar-days-container');
@@ -304,6 +346,13 @@ function renderCalendarDays() {
         prevWeekBtn.disabled = currentWeekOffset <= 0;
         prevWeekBtn.style.opacity = currentWeekOffset <= 0 ? '0.3' : '1';
         prevWeekBtn.style.cursor = currentWeekOffset <= 0 ? 'not-allowed' : 'pointer';
+    }
+    const nextWeekBtnEl = document.getElementById('next-week');
+    if (nextWeekBtnEl) {
+        const atMax = currentWeekOffset >= MAX_WEEK_OFFSET;
+        nextWeekBtnEl.disabled = atMax;
+        nextWeekBtnEl.style.opacity = atMax ? '0.3' : '1';
+        nextWeekBtnEl.style.cursor = atMax ? 'not-allowed' : 'pointer';
     }
 
     const displayedDates = [];
@@ -329,7 +378,8 @@ function renderCalendarDays() {
         const dayOfWeek = date.getDay();
         const isPast = date < today;
         const isMonday = (dayOfWeek === 1);
-        const isDisabled = isPast || isMonday;
+        const isFinishedToday = !isPast && !isMonday && !hasBookableSlot(date);
+        const isDisabled = isPast || isMonday || isFinishedToday;
         const isSelected = formatDateISO(date) === formatDateISO(selectedDate);
 
         const col = document.createElement('div');
@@ -468,20 +518,11 @@ function renderSlots(bookedMap = new Map()) {
         return;
     }
 
-    const now = new Date();
-    const isToday = formatDateISO(selectedDate) === formatDateISO(now);
-    const currentHour = now.getHours();
-    const currentMin = now.getMinutes();
-
     let renderedCount = 0;
 
     availableSlots.forEach(time => {
-        const [slotHourStr, slotMinStr] = time.split(':');
-        const slotHour = parseInt(slotHourStr, 10);
-        const slotMin = parseInt(slotMinStr, 10);
-
-        // Check if slot is already in the past today
-        const isPastSlot = isToday && (slotHour < currentHour || (slotHour === currentHour && slotMin <= currentMin + 10));
+        // Créneau passé (ou trop proche) — gère aussi les jours déjà passés
+        const isPastSlot = isSlotPast(selectedDate, time);
         const isBooked = isSlotTaken(time, bookedMap, selectedBarber);
 
         const btn = document.createElement('button');
@@ -627,6 +668,15 @@ if (bookingForm) {
             return;
         }
 
+        // Le formulaire a pu rester ouvert longtemps : le créneau est-il toujours dans le futur ?
+        const [sy, sm, sd] = currentSlotForBooking.dateIso.split('-').map(Number);
+        if (isSlotPast(new Date(sy, sm - 1, sd), currentSlotForBooking.time)) {
+            showBookingError("Ce créneau est désormais passé. Veuillez en choisir un autre.");
+            renderCalendarDays();
+            renderSlots(currentBookedMap);
+            return;
+        }
+
         // Set Loading State
         if (btnSubmitBooking) btnSubmitBooking.disabled = true;
         if (btnSubmitText) btnSubmitText.textContent = "Réservation en cours...";
@@ -650,34 +700,38 @@ if (bookingForm) {
             }
         }
 
-        let assignedBarber = null;
-        if (currentSlotForBooking.barberChoice === ANY_BARBER) {
-            assignedBarber = pickBarberForSlot(currentSlotForBooking.time, latestMap);
-        } else if (!isSlotTaken(currentSlotForBooking.time, latestMap, currentSlotForBooking.barberChoice)) {
-            assignedBarber = BARBERS.find(b => b.id === currentSlotForBooking.barberChoice) || null;
-        }
-
-        if (!assignedBarber) {
-            showBookingError("Désolé, ce créneau vient d'être réservé. Veuillez choisir un autre horaire ou un autre coiffeur.");
+        const resetSubmitBtn = () => {
             if (btnSubmitBooking) btnSubmitBooking.disabled = false;
             if (btnSubmitText) btnSubmitText.textContent = 'Confirmer mon rendez-vous';
+        };
+
+        // Coiffeurs à essayer, dans l'ordre de préférence
+        let candidates = [];
+        if (currentSlotForBooking.barberChoice === ANY_BARBER) {
+            const first = pickBarberForSlot(currentSlotForBooking.time, latestMap);
+            if (first) {
+                candidates = [first].concat(getFreeBarbers(currentSlotForBooking.time, latestMap).filter(b => b.id !== first.id));
+            }
+        } else if (!isSlotTaken(currentSlotForBooking.time, latestMap, currentSlotForBooking.barberChoice)) {
+            const b = BARBERS.find(x => x.id === currentSlotForBooking.barberChoice);
+            if (b) candidates = [b];
+        }
+
+        const slotTakenMsg = "Désolé, ce créneau vient d'être réservé. Veuillez choisir un autre horaire ou un autre coiffeur.";
+        if (candidates.length === 0) {
+            showBookingError(slotTakenMsg);
+            resetSubmitBtn();
             renderSlots(latestMap);
             return;
         }
 
-        const bookingPayload = {
-            date: currentSlotForBooking.dateIso,
-            time: currentSlotForBooking.time,
-            barber: assignedBarber.id,
-            barberName: assignedBarber.name,
-            service: serviceVal,
-            clientName: nameVal,
-            clientPhone: phoneVal,
-            clientNote: noteVal || '',
-            createdAt: (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
-        };
+        if (!db) {
+            showBookingError("La réservation en ligne est momentanément indisponible. Merci de réessayer dans un instant ou d'appeler le salon au 07 49 15 38 55.");
+            resetSubmitBtn();
+            return;
+        }
 
-        const showSuccess = () => {
+        const showSuccess = (assignedBarber) => {
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             const successBarber = document.getElementById('success-barber');
             if (successBarber) successBarber.textContent = assignedBarber.name;
@@ -693,26 +747,59 @@ if (bookingForm) {
             if (window.feather) feather.replace();
         };
 
+        // Enregistrement atomique : un document par (date, heure, coiffeur).
+        // Si deux clients valident en même temps, un seul réussit.
+        const SLOT_TAKEN = 'SLOT_TAKEN';
+        const tryBook = (barber) => {
+            const docId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${barber.id}`;
+            const ref = db.collection('bookings').doc(docId);
+            const payload = {
+                date: currentSlotForBooking.dateIso,
+                time: currentSlotForBooking.time,
+                barber: barber.id,
+                barberName: barber.name,
+                service: serviceVal,
+                clientName: nameVal,
+                clientPhone: phoneVal,
+                clientNote: noteVal || '',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            return db.runTransaction(async (tx) => {
+                const existing = await tx.get(ref);
+                if (existing.exists) throw new Error(SLOT_TAKEN);
+                tx.set(ref, payload);
+            });
+        };
+
         try {
-            if (db) {
-                // Add to Firestore collection with a strict 3.5s timeout to prevent hanging on mobile
-                await Promise.race([
-                    db.collection('bookings').add(bookingPayload),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3500))
-                ]);
+            let booked = null;
+            for (const barber of candidates) {
+                try {
+                    await Promise.race([
+                        tryBook(barber),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 10000))
+                    ]);
+                    booked = barber;
+                    break;
+                } catch (err) {
+                    if (err && err.message === SLOT_TAKEN) continue; // essayer le coiffeur suivant
+                    throw err;
+                }
             }
 
-            // Also keep in localStorage as safety backup
-            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, assignedBarber.id);
-            showSuccess();
+            if (!booked) {
+                showBookingError(slotTakenMsg);
+                loadSlotsForSelectedDate();
+                return;
+            }
+
+            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, booked.id);
+            showSuccess(booked);
         } catch (err) {
-            console.warn("Enregistrement en ligne différé ou hors-ligne :", err);
-            // Save locally so the client's reservation is guaranteed
-            saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, assignedBarber.id);
-            showSuccess();
+            console.warn("Échec de l'enregistrement de la réservation :", err);
+            showBookingError("Connexion impossible, votre rendez-vous n'a pas été enregistré. Vérifiez votre connexion internet et réessayez, ou appelez le salon au 07 49 15 38 55.");
         } finally {
-            if (btnSubmitBooking) btnSubmitBooking.disabled = false;
-            if (btnSubmitText) btnSubmitText.textContent = 'Confirmer mon rendez-vous';
+            resetSubmitBtn();
         }
     });
 }
@@ -836,13 +923,24 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
 const prevWeekBtn = document.getElementById('prev-week');
 const nextWeekBtn = document.getElementById('next-week');
 
+// Premier jour réservable de la semaine affichée (jamais un jour passé ou terminé, jamais un lundi)
+function getFirstAvailableDay(offset) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monday = getWeekStartDate(offset);
+    const start = new Date(monday > today ? monday : today);
+    const candidate = firstBookableDayFrom(start);
+    if (weekOffsetOf(candidate) === offset) return candidate;
+    // Plus rien de libre cette semaine : on garde le premier jour non passé
+    if (start.getDay() === 1) start.setDate(start.getDate() + 1);
+    return start;
+}
+
 if (prevWeekBtn) {
     prevWeekBtn.addEventListener('click', () => {
         if (currentWeekOffset > 0) {
             currentWeekOffset--;
-            const newMon = getWeekStartDate(currentWeekOffset);
-            selectedDate = new Date(newMon);
-            if (selectedDate.getDay() === 1) selectedDate.setDate(selectedDate.getDate() + 1);
+            selectedDate = getFirstAvailableDay(currentWeekOffset);
             renderCalendarDays();
             loadSlotsForSelectedDate();
         }
@@ -851,10 +949,9 @@ if (prevWeekBtn) {
 
 if (nextWeekBtn) {
     nextWeekBtn.addEventListener('click', () => {
+        if (currentWeekOffset >= MAX_WEEK_OFFSET) return;
         currentWeekOffset++;
-        const newMon = getWeekStartDate(currentWeekOffset);
-        selectedDate = new Date(newMon);
-        if (selectedDate.getDay() === 1) selectedDate.setDate(selectedDate.getDate() + 1);
+        selectedDate = getFirstAvailableDay(currentWeekOffset);
         renderCalendarDays();
         loadSlotsForSelectedDate();
     });
@@ -1114,17 +1211,30 @@ function escapeHtml(str) {
 }
 
 // Initial Launch of Calendar
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        renderBarberOptions();
-        renderCalendarDays();
-        loadSlotsForSelectedDate();
-    });
-} else {
+function initCalendar() {
+    resetToFirstBookableDay();
     renderBarberOptions();
     renderCalendarDays();
     loadSlotsForSelectedDate();
 }
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCalendar);
+} else {
+    initCalendar();
+}
+
+// Onglet resté ouvert longtemps (ex : après minuit) : on remet le calendrier à jour au retour
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!hasBookableSlot(selectedDate)) {
+        resetToFirstBookableDay();
+        loadSlotsForSelectedDate();
+    } else {
+        renderSlots(currentBookedMap);
+    }
+    renderCalendarDays();
+});
 
 /* ==========================================================================
    MOBILE-SPECIFIC ENHANCEMENTS (SWIPE, TOAST, QUICK SELECTION)
