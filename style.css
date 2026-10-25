@@ -2962,3 +2962,46 @@ img {
     display: none !important;
 }
 
+
+/* ===== Badge Ouvert / Fermé ===== */
+.open-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 1rem;
+    margin: 0.6rem 0 0.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #f5f5f5;
+    transition: border-color 0.3s ease, background 0.3s ease;
+}
+.open-status--small { font-size: 0.78rem; padding: 0.3rem 0.8rem; margin: 0.3rem 0 0.6rem; }
+.open-status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #9ca3af; flex-shrink: 0; position: relative;
+}
+.open-status.is-open  { border-color: rgba(52, 211, 153, 0.45); background: rgba(52, 211, 153, 0.1); }
+.open-status.is-open  .open-status-dot { background: #34d399; }
+.open-status.is-soon  { border-color: rgba(251, 191, 36, 0.45); background: rgba(251, 191, 36, 0.1); }
+.open-status.is-soon  .open-status-dot { background: #fbbf24; }
+.open-status.is-closed { border-color: rgba(248, 113, 113, 0.4); background: rgba(248, 113, 113, 0.08); }
+.open-status.is-closed .open-status-dot { background: #f87171; }
+.open-status.is-open .open-status-dot::after,
+.open-status.is-soon .open-status-dot::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: inherit; animation: openPulse 1.8s ease-out infinite;
+}
+@keyframes openPulse {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(2.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .open-status-dot::after { animation: none !important; }
+}
+.hero-content .open-status { display: flex; width: fit-content; }

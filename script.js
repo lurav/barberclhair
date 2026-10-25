@@ -1338,3 +1338,61 @@ serviceCards.forEach(card => {
 
 
 
+
+/* ===== Badge Ouvert / Fermé (heure de Paris) ===== */
+(function () {
+    // 0 = Dimanche ... 6 = Samedi — plages en minutes
+    const HOURS = {
+        0: [[600, 840]],                 // Dim 10:00-14:00
+        1: [],                           // Lun fermé
+        2: [[540, 1140]],                // Mar 09:00-19:00
+        3: [[540, 1140]],                // Mer
+        4: [[540, 1140]],                // Jeu
+        5: [[540, 750], [840, 1140]],    // Ven 09:00-12:30 / 14:00-19:00
+        6: [[540, 1140]]                 // Sam
+    };
+    const DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    const fmt = m => String(Math.floor(m / 60)).padStart(2, '0') + 'h' + String(m % 60).padStart(2, '0');
+
+    function parisNow() {
+        const p = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Europe/Paris', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+        }).formatToParts(new Date());
+        const get = t => p.find(x => x.type === t).value;
+        const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday'));
+        return { day, min: parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10) };
+    }
+
+    function status() {
+        const { day, min } = parisNow();
+        const current = HOURS[day].find(([o, c]) => min >= o && min < c);
+        if (current) {
+            const left = current[1] - min;
+            return left <= 30
+                ? { cls: 'soon', text: `Ferme bientôt · jusqu'à ${fmt(current[1])}` }
+                : { cls: 'open', text: `Ouvert maintenant · jusqu'à ${fmt(current[1])}` };
+        }
+        const later = HOURS[day].find(([o]) => o > min);
+        if (later) return { cls: 'closed', text: `Fermé · ouvre à ${fmt(later[0])}` };
+        for (let i = 1; i <= 7; i++) {
+            const d = (day + i) % 7;
+            if (HOURS[d].length) {
+                const when = i === 1 ? 'demain' : DAYS[d];
+                return { cls: 'closed', text: `Fermé · ouvre ${when} à ${fmt(HOURS[d][0][0])}` };
+            }
+        }
+        return { cls: 'closed', text: 'Fermé' };
+    }
+
+    function render() {
+        const s = status();
+        document.querySelectorAll('[data-open-status]').forEach(el => {
+            el.classList.remove('is-open', 'is-soon', 'is-closed');
+            el.classList.add('is-' + s.cls);
+            el.querySelector('.open-status-text').textContent = s.text;
+        });
+    }
+
+    render();
+    setInterval(render, 60000);
+})();
