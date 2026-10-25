@@ -66,6 +66,30 @@ faqItems.forEach(item => {
     }
 });
 
+// ── Gallery Tabs (Salon / Produits) ───────────────────────────
+const galleryTabBtns = document.querySelectorAll('.gallery-tab');
+const galleryPanes  = document.querySelectorAll('.gallery-pane');
+
+galleryTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        galleryTabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        galleryPanes.forEach(pane => {
+            if (pane.id === 'tab-' + target) {
+                pane.style.display = 'grid';
+                // Re-trigger reveal animations
+                pane.querySelectorAll('.reveal').forEach(el => {
+                    el.classList.remove('visible');
+                    setTimeout(() => el.classList.add('visible'), 50);
+                });
+            } else {
+                pane.style.display = 'none';
+            }
+        });
+    });
+});
+
 // Lightbox for Gallery
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightbox-img');
@@ -146,11 +170,10 @@ const MONTH_NAMES = [
 // Les anciens rendez-vous (avant l'ajout du 2e coiffeur) sont attribués au 1er.
 // ==========================================================================
 const BARBERS = [
-    { id: 'isma', name: 'Isma' },
-    { id: 'karim', name: 'Karim' }
+    { id: 'isma', name: 'Isma' }
 ];
 const ANY_BARBER = 'any';
-let selectedBarber = ANY_BARBER;
+let selectedBarber = BARBERS[0].id;
 let currentBookedMap = new Map(); // "HH:MM" -> Set(barberId)
 let adminBarberFilter = 'all';
 
@@ -197,8 +220,7 @@ function renderBarberOptions() {
     if (!container) return;
     container.innerHTML = '';
 
-    const options = [{ id: ANY_BARBER, name: 'Peu importe', hint: 'Premier disponible' }]
-        .concat(BARBERS.map(b => ({ id: b.id, name: b.name, hint: 'Coiffeur' })));
+    const options = BARBERS.map(b => ({ id: b.id, name: b.name, hint: 'Coiffeur' }));
 
     options.forEach(opt => {
         const btn = document.createElement('button');
@@ -731,6 +753,27 @@ if (bookingForm) {
             return;
         }
 
+        // Un seul rendez-vous à venir par numéro de téléphone
+        const phoneNorm = normalizePhone(phoneVal);
+        try {
+            const existing = await Promise.race([
+                findUpcomingBookingForPhone(phoneNorm, phoneVal),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 8000))
+            ]);
+            if (existing) {
+                const [ey, em, ed] = existing.date.split('-').map(Number);
+                const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existing.time}`;
+                showBookingError(`Vous avez déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est possible. Pour le modifier ou l'annuler, appelez le salon au 07 49 15 38 55.`);
+                resetSubmitBtn();
+                return;
+            }
+        } catch (dupErr) {
+            console.warn("Vérification du numéro impossible :", dupErr);
+            showBookingError("Connexion impossible, votre rendez-vous n'a pas été enregistré. Vérifiez votre connexion internet et réessayez, ou appelez le salon au 07 49 15 38 55.");
+            resetSubmitBtn();
+            return;
+        }
+
         const showSuccess = (assignedBarber) => {
             document.getElementById('success-datetime').textContent = `${currentSlotForBooking.dateFull} à ${currentSlotForBooking.time}`;
             const successBarber = document.getElementById('success-barber');
@@ -761,6 +804,7 @@ if (bookingForm) {
                 service: serviceVal,
                 clientName: nameVal,
                 clientPhone: phoneVal,
+                clientPhoneNorm: phoneNorm,
                 clientNote: noteVal || '',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
