@@ -462,38 +462,62 @@ function loadSlotsForSelectedDate() {
         selectedDateTitle.textContent = formatDateFull(selectedDate);
     }
 
-    slotsContainer.innerHTML = '<div class="slots-loading">Vérification des disponibilités en direct...</div>';
-
     const selectedIso = formatDateISO(selectedDate);
 
-    // Unsubscribe previous real-time listener if any
-    if (unsubscribeBookings) {
-        unsubscribeBookings();
-        unsubscribeBookings = null;
+    // Jour fermé : affichage immédiat, inutile d'attendre Firebase
+    if (getSlotsForDay(selectedDate.getDay()).length === 0) {
+        renderSlots(new Map());
+        startBookingsListener(); // précharge les autres jours en arrière-plan
+        return;
     }
 
-    if (db) {
-        unsubscribeBookings = db.collection('bookings')
-            .where('date', '==', selectedIso)
-            .onSnapshot((snapshot) => {
-                const bookedMap = new Map();
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data && data.time) {
-                        addToBookedMap(bookedMap, data.time, bookingBarberId(data));
-                    }
-                });
-                renderSlots(bookedMap);
-            }, (error) => {
-                console.warn("Écouteur Firestore non actif (vérifier les règles Firestore) :", error);
-                // Fallback to local storage or empty booked list
-                const localBookings = getLocalBookings(selectedIso);
-                renderSlots(localBookings);
-            });
-    } else {
-        const localBookings = getLocalBookings(selectedIso);
-        renderSlots(localBookings);
+    if (!db) {
+        renderSlots(getLocalBookings(selectedIso));
+        return;
     }
+
+    // Données déjà en mémoire : affichage instantané
+    if (bookingsCacheReady) {
+        renderSlots(bookingsCache.get(selectedIso) || new Map());
+        return;
+    }
+
+    slotsContainer.innerHTML = '<div class="slots-loading">Vérification des disponibilités en direct...</div>';
+    startBookingsListener();
+}
+
+// ===== Cache des réservations =====
+// Un seul écouteur temps réel couvre toute la période réservable (aujourd'hui → +MAX_WEEK_OFFSET semaines).
+// Changer de jour ne refait donc plus aucune requête réseau.
+const bookingsCache = new Map(); // "YYYY-MM-DD" -> Map(time -> barbers)
+let bookingsCacheReady = false;
+
+function startBookingsListener() {
+    if (!db || unsubscribeBookings) return; // déjà actif
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(getWeekStartDate(MAX_WEEK_OFFSET));
+    end.setDate(end.getDate() + 6);
+
+    unsubscribeBookings = db.collection('bookings')
+        .where('date', '>=', formatDateISO(start))
+        .where('date', '<=', formatDateISO(end))
+        .onSnapshot((snapshot) => {
+            bookingsCache.clear();
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (!data || !data.time || !data.date) return;
+                if (!bookingsCache.has(data.date)) bookingsCache.set(data.date, new Map());
+                addToBookedMap(bookingsCache.get(data.date), data.time, bookingBarberId(data));
+            });
+            bookingsCacheReady = true;
+            renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
+        }, (error) => {
+            console.warn("Écouteur Firestore non actif (vérifier les règles Firestore) :", error);
+            unsubscribeBookings = null;
+            renderSlots(getLocalBookings(formatDateISO(selectedDate)));
+        });
 }
 
 // Local Storage Fallback for Bookings
