@@ -146,8 +146,6 @@ try {
             firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
-        // Évite les requêtes bloquées sur certains réseaux / mobiles
-        db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
         console.log("✓ Firebase & Firestore connectés avec succès.");
     } else {
         console.warn("Firebase SDK non détecté. Mode démo actif.");
@@ -741,13 +739,9 @@ if (bookingForm) {
         if (dupCheckPromise) dupCheckPromise.catch(() => {});
         if (db) {
             try {
-                const snap = await Promise.race([
-                    db.collection('bookings').where('date', '==', currentSlotForBooking.dateIso).get(),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
-                ]);
+                const docs = await fsQueryEqual('date', currentSlotForBooking.dateIso, 5000);
                 latestMap = new Map();
-                snap.forEach(doc => {
-                    const d = doc.data();
+                docs.forEach(d => {
                     if (d && d.time) addToBookedMap(latestMap, d.time, bookingBarberId(d));
                 });
             } catch (checkErr) {
@@ -835,12 +829,11 @@ if (bookingForm) {
                 clientPhone: phoneVal,
                 clientPhoneNorm: phoneNorm,
                 clientNote: noteVal || '',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: new Date()
             };
-            return db.runTransaction(async (tx) => {
-                const existing = await tx.get(ref);
-                if (existing.exists) throw new Error(SLOT_TAKEN);
-                tx.set(ref, payload);
+            void ref;
+            return fsCreateDoc(docId, payload, 10000).then(ok => {
+                if (!ok) throw new Error(SLOT_TAKEN);
             });
         };
 
@@ -877,6 +870,60 @@ if (bookingForm) {
     });
 }
 
+// ---- Firestore via API REST (rapide et fiable, sans connexion persistante) ----
+const FS_BASE = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
+
+function fsFetch(url, options, timeoutMs) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || 8000);
+    return fetch(url, Object.assign({}, options, { signal: ctrl.signal })).finally(() => clearTimeout(t));
+}
+
+function fsToValue(v) {
+    if (v instanceof Date) return { timestampValue: v.toISOString() };
+    if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+    if (typeof v === 'boolean') return { booleanValue: v };
+    if (v === null || v === undefined) return { nullValue: null };
+    return { stringValue: String(v) };
+}
+
+function fsFromFields(fields) {
+    const out = {};
+    Object.keys(fields || {}).forEach(k => {
+        const f = fields[k];
+        out[k] = f.stringValue ?? f.integerValue ?? f.doubleValue ?? f.booleanValue ?? f.timestampValue ?? null;
+    });
+    return out;
+}
+
+async function fsQueryEqual(field, value, timeoutMs) {
+    const res = await fsFetch(`${FS_BASE}:runQuery?key=${firebaseConfig.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ structuredQuery: {
+            from: [{ collectionId: 'bookings' }],
+            where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: value } } }
+        } })
+    }, timeoutMs);
+    if (!res.ok) throw new Error('Firestore query ' + res.status);
+    const rows = await res.json();
+    return rows.filter(r => r.document).map(r => fsFromFields(r.document.fields));
+}
+
+// Crée le document ; renvoie false si le créneau existe déjà (409)
+async function fsCreateDoc(docId, data, timeoutMs) {
+    const fields = {};
+    Object.keys(data).forEach(k => { fields[k] = fsToValue(data[k]); });
+    const res = await fsFetch(`${FS_BASE}/bookings?documentId=${encodeURIComponent(docId)}&key=${firebaseConfig.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields })
+    }, timeoutMs);
+    if (res.status === 409) return false;
+    if (!res.ok) throw new Error('Firestore create ' + res.status);
+    return true;
+}
+
 // Normalise un numéro : "+33 6 12..." / "06 12..." -> "0612..."
 function normalizePhone(phone) {
     let d = String(phone || '').replace(/\D/g, '');
@@ -893,13 +940,12 @@ async function findUpcomingBookingForPhone(phoneNorm, phoneRaw) {
     const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const nowTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-    const queries = [db.collection('bookings').where('clientPhoneNorm', '==', phoneNorm).get()];
-    if (phoneRaw) queries.push(db.collection('bookings').where('clientPhone', '==', phoneRaw).get());
-    const snaps = await Promise.all(queries);
+    const queries = [fsQueryEqual('clientPhoneNorm', phoneNorm, 7000)];
+    if (phoneRaw) queries.push(fsQueryEqual('clientPhone', phoneRaw, 7000));
+    const results = await Promise.all(queries);
 
     let found = null;
-    snaps.forEach(snap => snap.forEach(doc => {
-        const d = doc.data();
+    results.forEach(list => list.forEach(d => {
         if (!d || !d.date || !d.time) return;
         const upcoming = d.date > todayIso || (d.date === todayIso && d.time >= nowTime);
         if (upcoming && (!found || d.date + d.time < found.date + found.time)) found = d;
