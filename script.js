@@ -1017,54 +1017,58 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
         if (e) e.preventDefault();
         const ua = navigator.userAgent || '';
         const isAndroid = /Android/i.test(ua);
-        const isIOS = /iPhone|iPad|iPod/i.test(ua);
+        // iPadOS se présente comme un Mac : on détecte l'écran tactile
+        const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
 
         if (isAndroid) {
-            // Sur Android, redirection directe vers Google Agenda
-            const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startUtcStr}/${endUtcStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
-            window.open(googleUrl, '_blank');
-        } else {
-            // Sur iPhone (iOS) et macOS / Windows : génération .ics standard
-            const icsContent = [
-                'BEGIN:VCALENDAR',
-                'VERSION:2.0',
-                'PRODID:-//Barber C L\'Hair//FR',
-                'CALSCALE:GREGORIAN',
-                'METHOD:PUBLISH',
-                'BEGIN:VEVENT',
-                `UID:barber-${Date.now()}@barberclhair.fr`,
-                `DTSTAMP:${formatCalDateUTC(new Date())}`,
-                `DTSTART:${startUtcStr}`,
-                `DTEND:${endUtcStr}`,
-                `SUMMARY:${title}`,
-                `DESCRIPTION:${descICS}`,
-                `LOCATION:${location}`,
-                'STATUS:CONFIRMED',
-                'BEGIN:VALARM',
-                'TRIGGER:-PT1H',
-                'ACTION:DISPLAY',
-                'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 1h',
-                'END:VALARM',
-                'END:VEVENT',
-                'END:VCALENDAR'
-            ].join('\r\n');
-
-            if (isIOS) {
-                // Sur iOS Safari, le data URI text/calendar déclenche directement l'ajout dans Apple Calendar
-                const uri = 'data:text/calendar;charset=utf8,' + encodeURIComponent(icsContent);
-                window.location.href = uri;
-            } else {
-                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }
+            // Google Agenda (même onglet : pas bloqué par l'anti-popup)
+            window.location.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startUtcStr}/${endUtcStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
+            return;
         }
+
+        if (isIOS) {
+            // Vrai fichier .ics servi par le serveur -> « Ajouter au calendrier » d'Apple
+            const params = new URLSearchParams({ start: startUtcStr, end: endUtcStr, title, desc: descPlain, loc: location });
+            window.location.href = `/api/ics?${params.toString()}`;
+            return;
+        }
+
+        // Ordinateur : téléchargement du fichier .ics
+        const icsEsc = (s) => String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+        const icsContent = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//Barber C L\'Hair//FR',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'BEGIN:VEVENT',
+            `UID:barber-${Date.now()}@barberclhair.fr`,
+            `DTSTAMP:${formatCalDateUTC(new Date())}`,
+            `DTSTART:${startUtcStr}`,
+            `DTEND:${endUtcStr}`,
+            `SUMMARY:${icsEsc(title)}`,
+            `DESCRIPTION:${icsEsc(descPlain)}`,
+            `LOCATION:${icsEsc(location)}`,
+            'STATUS:CONFIRMED',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT1H',
+            'ACTION:DISPLAY',
+            'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 1h',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR'
+        ].join('\r\n');
+        void descICS;
+
+        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
 }
 
