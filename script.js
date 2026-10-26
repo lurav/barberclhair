@@ -146,6 +146,8 @@ try {
             firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
+        // Évite les requêtes bloquées sur certains réseaux / mobiles
+        db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
         console.log("✓ Firebase & Firestore connectés avec succès.");
     } else {
         console.warn("Firebase SDK non détecté. Mode démo actif.");
@@ -730,6 +732,13 @@ if (bookingForm) {
 
         // Vérification de dernière seconde : qui est encore libre sur ce créneau ?
         let latestMap = currentBookedMap;
+        const phoneNorm = normalizePhone(phoneVal);
+        // Lancée en parallèle de la vérification du créneau pour gagner du temps
+        const dupCheckPromise = db ? Promise.race([
+            findUpcomingBookingForPhone(phoneNorm, phoneVal),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 8000))
+        ]) : null;
+        if (dupCheckPromise) dupCheckPromise.catch(() => {});
         if (db) {
             try {
                 const snap = await Promise.race([
@@ -778,12 +787,8 @@ if (bookingForm) {
         }
 
         // Un seul rendez-vous à venir par numéro de téléphone
-        const phoneNorm = normalizePhone(phoneVal);
         try {
-            const existing = await Promise.race([
-                findUpcomingBookingForPhone(phoneNorm, phoneVal),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 8000))
-            ]);
+            const existing = await dupCheckPromise;
             if (existing) {
                 const [ey, em, ed] = existing.date.split('-').map(Number);
                 const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existing.time}`;
@@ -870,6 +875,36 @@ if (bookingForm) {
             resetSubmitBtn();
         }
     });
+}
+
+// Normalise un numéro : "+33 6 12..." / "06 12..." -> "0612..."
+function normalizePhone(phone) {
+    let d = String(phone || '').replace(/\D/g, '');
+    if (d.startsWith('0033')) d = '0' + d.slice(4);
+    else if (d.startsWith('33') && d.length === 11) d = '0' + d.slice(2);
+    return d;
+}
+
+// Cherche un rendez-vous à venir pour ce numéro (aujourd'hui ou plus tard)
+async function findUpcomingBookingForPhone(phoneNorm, phoneRaw) {
+    if (!db) return null;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const nowTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    const queries = [db.collection('bookings').where('clientPhoneNorm', '==', phoneNorm).get()];
+    if (phoneRaw) queries.push(db.collection('bookings').where('clientPhone', '==', phoneRaw).get());
+    const snaps = await Promise.all(queries);
+
+    let found = null;
+    snaps.forEach(snap => snap.forEach(doc => {
+        const d = doc.data();
+        if (!d || !d.date || !d.time) return;
+        const upcoming = d.date > todayIso || (d.date === todayIso && d.time >= nowTime);
+        if (upcoming && (!found || d.date + d.time < found.date + found.time)) found = d;
+    }));
+    return found;
 }
 
 function showBookingError(msg) {
