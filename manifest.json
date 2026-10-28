@@ -1,0 +1,19 @@
+{
+  "name": "Barber c l'hair – Aulnoye-Aymeries",
+  "short_name": "Barber c l'hair",
+  "description": "Coiffeur & barbier à Aulnoye-Aymeries. Réservez votre rendez-vous en ligne.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Prendre rendez-vous", "url": "./#booking", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Tarifs", "url": "./#services", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
