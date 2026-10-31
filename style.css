@@ -3391,3 +3391,47 @@ p, .service-desc, .testimonial-text { text-wrap: pretty; }
 @media screen and (min-width: 993px) and (max-width: 1180px) {
     .logo { font-size: 1.25rem; letter-spacing: 2px; }
 }
+
+/* ============================================
+   🌊 ANIMATIONS PLUS DOUCES
+   Apparition lente avec une courbe « ralentie à l'arrivée »,
+   déplacement plus court, survols moins brusques.
+   ============================================ */
+:root {
+    --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+    --transition: all 0.55s var(--ease-soft);
+    --transition-fast: all 0.35s var(--ease-soft);
+}
+.reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 1.1s var(--ease-soft), transform 1.1s var(--ease-soft);
+    will-change: opacity, transform;
+}
+.reveal.active { opacity: 1; transform: translateY(0); will-change: auto; }
+
+/* Cascade plus fluide sur les grilles */
+.service-card.reveal:nth-child(n) { transition-delay: calc((var(--i, 0)) * 0s); }
+.service-card.reveal:nth-child(2), .gallery-item.reveal:nth-child(2), .faq-item.reveal:nth-child(2) { transition-delay: 0.12s; }
+.service-card.reveal:nth-child(3), .gallery-item.reveal:nth-child(3), .faq-item.reveal:nth-child(3) { transition-delay: 0.24s; }
+.service-card.reveal:nth-child(4), .gallery-item.reveal:nth-child(4), .faq-item.reveal:nth-child(4) { transition-delay: 0.36s; }
+.service-card.reveal:nth-child(5), .gallery-item.reveal:nth-child(5), .faq-item.reveal:nth-child(5) { transition-delay: 0.48s; }
+.service-card.reveal:nth-child(6) { transition-delay: 0.6s; }
+
+/* Les délais de cascade ne doivent pas ralentir les survols une fois affiché */
+.service-card.reveal.active, .gallery-item.reveal.active, .faq-item.reveal.active { transition-delay: 0s; }
+
+/* Survols : légère montée plutôt qu'un saut */
+.btn:hover, .service-card:hover { transition-duration: 0.5s; }
+
+/* Pulsations et lueurs : plus lentes, moins marquées */
+.hero-app-link { animation-duration: 4.5s; }
+.app-intro-icon { animation-duration: 6s; }
+.hw-edition-badge { animation-duration: 4s; }
+.section-title { animation-duration: 7s; }
+.section-line { animation-duration: 5s; }
+
+@media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    html { scroll-behavior: auto; }
+}
