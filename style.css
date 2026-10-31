@@ -3005,3 +3005,107 @@ img {
     .open-status-dot::after { animation: none !important; }
 }
 .hero-content .open-status { display: flex; width: fit-content; }
+
+/* ============================================
+   📲 INSTALLER L'APPLI (PWA)
+   ============================================ */
+.pwa-install {
+    position: fixed;
+    left: 50%;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    transform: translate(-50%, 140%);
+    width: min(92vw, 420px);
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.8rem 0.9rem;
+    background: linear-gradient(135deg, rgba(20, 20, 20, 0.96), rgba(8, 8, 8, 0.96));
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(212, 175, 55, 0.12);
+    z-index: 989;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.2), opacity 0.4s ease;
+}
+.pwa-install.show {
+    transform: translate(-50%, 0);
+    opacity: 1;
+    pointer-events: auto;
+}
+.pwa-install-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.4);
+}
+.pwa-install-text { flex: 1; min-width: 0; line-height: 1.25; }
+.pwa-install-text strong { display: block; font-size: 0.92rem; color: #fff; }
+.pwa-install-text span { font-size: 0.76rem; color: var(--text-light); }
+.pwa-install-btn {
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
+    color: #000;
+    border: 0;
+    border-radius: 50px;
+    padding: 0.55rem 1rem;
+    font: inherit;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px var(--accent-gold-glow);
+    transition: var(--transition-fast);
+}
+.pwa-install-btn:active { transform: scale(0.94); }
+.pwa-install-close {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #111;
+    color: #bbb;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* Fenêtre d'explication iPhone */
+.pwa-ios-dialog {
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: 22px;
+    padding: 1.75rem 1.5rem 1.4rem;
+    width: min(90vw, 380px);
+    background: #0b0b0b;
+    color: #fff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    text-align: center;
+}
+.pwa-ios-dialog::backdrop { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); }
+.pwa-ios-dialog[open] { animation: pwaPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes pwaPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.pwa-ios-dialog img { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 0.75rem; }
+.pwa-ios-dialog h3 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 1.1rem; }
+.pwa-ios-steps { list-style: none; padding: 0; margin: 0 0 1.3rem; text-align: left; display: grid; gap: 0.75rem; }
+.pwa-ios-steps li { display: flex; align-items: center; gap: 0.75rem; font-size: 0.92rem; color: #ddd; }
+.pwa-ios-steps b {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(212, 175, 55, 0.15);
+    color: var(--accent-gold);
+    font-size: 0.85rem;
+}
+.pwa-ios-steps svg { vertical-align: -4px; color: #0a84ff; }
+.pwa-ios-dialog .pwa-install-btn { width: 100%; padding: 0.8rem; font-size: 0.9rem; }
+
+@media (min-width: 993px) {
+    .pwa-install { bottom: 24px; left: auto; right: 24px; transform: translateY(140%); }
+    .pwa-install.show { transform: translateY(0); }
+}
