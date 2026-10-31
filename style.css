@@ -3157,3 +3157,70 @@ img {
     box-shadow: 0 0 10px #ff6b5a;
 }
 .offline-bar.online::before { background: #4ade80; box-shadow: 0 0 10px #4ade80; }
+
+/* ============================================
+   🔤 TYPOGRAPHIE FLUIDE – tailles harmonisées
+   Les tailles s'adaptent en continu à la largeur de l'écran
+   (clamp = minimum, idéal, maximum) : plus de sauts brusques
+   entre téléphone, tablette et ordinateur.
+   ============================================ */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+body { line-height: 1.6; overflow-wrap: break-word; }
+h1, h2, h3, .section-title, .hero-title, .modal-title { text-wrap: balance; }
+p, .service-desc, .testimonial-text, .faq-answer { text-wrap: pretty; }
+
+/* Titres */
+.hero-title          { font-size: clamp(2.1rem, 1.2rem + 4.6vw, 4.5rem); line-height: 1.1; }
+.section-title       { font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem); line-height: 1.2; }
+.gallery-category-title,
+.before-after-title,
+.local-seo-title     { font-size: clamp(1.2rem, 1rem + 0.9vw, 1.45rem); }
+.service-name        { font-size: clamp(1.15rem, 1rem + 0.6vw, 1.35rem); }
+.service-price       { font-size: clamp(1.45rem, 1.2rem + 1vw, 1.75rem); }
+.stat-num            { font-size: clamp(2rem, 1.5rem + 2vw, 2.75rem); }
+.modal-title         { font-size: clamp(1.15rem, 1rem + 0.8vw, 1.5rem); }
+.calendar-month      { font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.25rem); }
+.faq-question h3     { font-size: clamp(0.98rem, 0.92rem + 0.3vw, 1.05rem); line-height: 1.4; }
+.logo                { font-size: clamp(1.2rem, 1rem + 0.8vw, 1.5rem); }
+
+/* Textes courants */
+.hero-description    { font-size: clamp(1rem, 0.92rem + 0.4vw, 1.15rem); }
+.about-content p     { font-size: clamp(0.98rem, 0.93rem + 0.25vw, 1.05rem); }
+.service-desc,
+.testimonial-text,
+.local-seo-desc      { font-size: clamp(0.9rem, 0.87rem + 0.15vw, 0.95rem); line-height: 1.65; }
+
+/* Petits textes : jamais en dessous d'une taille lisible sur téléphone */
+@media screen and (max-width: 768px) {
+    .btn, .service-select-btn, .google-review-btn,
+    .contact-link, .local-access-info, .calendar-info,
+    .slot-btn, .mobile-toast                         { font-size: 0.9rem; }
+    .hero-feature-item, .testimonial-author, .stat-label,
+    .town-tag, .nav-quick-btn, .admin-link-btn,
+    .cal-section-subtitle, .modal-form label,
+    .google-verified-label, .footer-copy             { font-size: 0.82rem; }
+    .hero-badge, .service-badge, .modal-badge,
+    .local-seo-badge, .barber-hint, .form-hint,
+    .nav-drawer-status, .admin-filter-count,
+    .mobile-dock-btn                                 { font-size: 0.75rem; }
+    .cal-day-name                                    { font-size: 0.7rem; letter-spacing: 0.04em; }
+    .cal-closed-badge                                { font-size: 0.62rem; }
+    .cal-date                                        { font-size: 0.92rem; }
+    .mobile-dock-cta, #btn-submit-booking            { font-size: 0.95rem; }
+
+    /* iPhone zoome automatiquement si un champ fait moins de 16px */
+    input, select, textarea { font-size: 16px !important; }
+
+    /* Boutons : pas de texte qui passe sur 2 lignes */
+    .slot-btn, .mobile-dock-cta { white-space: nowrap; }
+}
+
+@media screen and (max-width: 380px) {
+    .hero-title    { font-size: 1.95rem; }
+    .section-title { font-size: 1.6rem; }
+    .cal-date      { font-size: 0.82rem; }
+    .cal-day-name  { font-size: 0.64rem; }
+}
