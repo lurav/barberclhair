@@ -90,40 +90,92 @@ galleryTabBtns.forEach(btn => {
     });
 });
 
-// Lightbox for Gallery
+// Lightbox for Gallery — fermeture : bouton ✕, clic n'importe où, Échap, glisser vers le bas, bouton retour du téléphone
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightbox-img');
 const lightboxClose = document.querySelector('.lightbox-close');
 const galleryItems = document.querySelectorAll('.gallery-item');
 
-if(lightbox && galleryItems.length > 0) {
-    galleryItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const imgUrl = item.querySelector('img').src;
-            if(lightboxImg) {
-                lightboxImg.src = imgUrl;
-                lightbox.style.display = 'flex';
-                // Adjusting CSS dynamically to center it properly if needed
-                lightbox.style.alignItems = 'center';
-                lightbox.style.justifyContent = 'center';
-                lightbox.style.paddingTop = '0';
-            }
-        });
+if (lightbox && lightboxImg && galleryItems.length > 0) {
+    const imgs = [...galleryItems].map(it => it.querySelector('img')).filter(Boolean);
+    let current = 0, isOpen = false;
+
+    // Flèches précédent / suivant + compteur
+    const mk = (cls, html, label) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = cls; b.innerHTML = html; b.setAttribute('aria-label', label);
+        lightbox.appendChild(b); return b;
+    };
+    const prevBtn = mk('lightbox-nav lightbox-prev', '&#8249;', 'Photo précédente');
+    const nextBtn = mk('lightbox-nav lightbox-next', '&#8250;', 'Photo suivante');
+    const counter = document.createElement('div');
+    counter.className = 'lightbox-counter';
+    lightbox.appendChild(counter);
+    const hint = document.createElement('div');
+    hint.className = 'lightbox-hint';
+    hint.textContent = 'Touchez n\'importe où pour fermer';
+    lightbox.appendChild(hint);
+    if (lightboxClose) { lightboxClose.setAttribute('role', 'button'); lightboxClose.setAttribute('aria-label', 'Fermer'); lightboxClose.tabIndex = 0; }
+
+    const show = (i) => {
+        current = (i + imgs.length) % imgs.length;
+        lightboxImg.classList.remove('lb-in'); void lightboxImg.offsetWidth;
+        lightboxImg.src = imgs[current].currentSrc || imgs[current].src;
+        lightboxImg.alt = imgs[current].alt || '';
+        lightboxImg.classList.add('lb-in');
+        counter.textContent = `${current + 1} / ${imgs.length}`;
+    };
+    const open = (i) => {
+        show(i);
+        lightbox.style.display = 'flex';
+        lightbox.style.alignItems = 'center';
+        lightbox.style.justifyContent = 'center';
+        lightbox.style.paddingTop = '0';
+        requestAnimationFrame(() => lightbox.classList.add('lb-open'));
+        document.body.style.overflow = 'hidden';
+        isOpen = true;
+        history.pushState({ lightbox: true }, '');
+    };
+    const close = (fromHistory = false) => {
+        if (!isOpen) return;
+        isOpen = false;
+        lightbox.classList.remove('lb-open');
+        lightboxImg.style.transform = '';
+        document.body.style.overflow = '';
+        setTimeout(() => { if (!isOpen) lightbox.style.display = 'none'; }, 250);
+        if (!fromHistory && history.state && history.state.lightbox) history.back();
+    };
+
+    galleryItems.forEach((item, i) => item.addEventListener('click', () => open(i)));
+    prevBtn.addEventListener('click', (e) => { e.stopPropagation(); show(current - 1); });
+    nextBtn.addEventListener('click', (e) => { e.stopPropagation(); show(current + 1); });
+    // Clic n'importe où (fond, photo, croix) = fermer
+    lightbox.addEventListener('click', (e) => { if (!e.target.closest('.lightbox-nav')) close(); });
+    addEventListener('keydown', (e) => {
+        if (!isOpen) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowLeft') show(current - 1);
+        else if (e.key === 'ArrowRight') show(current + 1);
     });
+    // Bouton retour Android / navigateur
+    addEventListener('popstate', () => close(true));
 
-    if(lightboxClose) {
-        lightboxClose.addEventListener('click', () => {
-            lightbox.style.display = 'none';
-        });
-    }
-
-    window.addEventListener('click', (e) => {
-        if(e.target === lightbox) {
-            lightbox.style.display = 'none';
-        }
+    // Glisser : gauche/droite = changer de photo, vers le bas = fermer
+    let sx = 0, sy = 0, dragging = false;
+    lightbox.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; dragging = true; }, { passive: true });
+    lightbox.addEventListener('touchmove', (e) => {
+        if (!dragging) return;
+        const dy = e.touches[0].clientY - sy;
+        if (dy > 0) lightboxImg.style.transform = `translateY(${dy}px) scale(${1 - Math.min(dy / 1500, .15)})`;
+    }, { passive: true });
+    lightbox.addEventListener('touchend', (e) => {
+        if (!dragging) return; dragging = false;
+        const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+        lightboxImg.style.transform = '';
+        if (dy > 100) { e.preventDefault(); close(); }
+        else if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { e.preventDefault(); show(current + (dx < 0 ? 1 : -1)); }
     });
 }
-
 /* ==========================================================================
    FIREBASE RESERVATION SYSTEM - BARBER C L'HAIR
    ========================================================================== */
