@@ -48,7 +48,7 @@
     
     <link rel="stylesheet" href="style.css?v=2.30">
 
-    <!-- 🎃 Halloween Theme (actif automatiquement du 1er octobre au 2 novembre) -->
+    <!-- 🎃 Halloween Theme (actif automatiquement du 1er au 31 octobre, coupé le 1er novembre à 00h00) -->
     <style id="hw-style">
         /* ── Halloween Variables ─────────────────────────────── */
         :root {
@@ -408,7 +408,7 @@
     <script>
         (function () {
             var now = new Date(), m = now.getMonth(), d = now.getDate();
-            var inSeason = m === 9 || (m === 10 && d <= 2);
+            var inSeason = m === 9; // octobre uniquement : coupé automatiquement le 1er novembre à 00h00
             if (!inSeason) {
                 var s = document.getElementById('hw-style');
                 if (s) s.remove();
