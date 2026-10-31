@@ -44,7 +44,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.26">
+    <link rel="stylesheet" href="style.css?v=2.27">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er octobre au 2 novembre) -->
     <style id="hw-style">
@@ -615,6 +615,7 @@
                     <li><a href="#services" class="nav-link">Services</a></li>
                     <li><a href="#about" class="nav-link">À Propos</a></li>
                     <li><a href="#gallery" class="nav-link">Galerie</a></li>
+                    <li data-hide-standalone><a href="#app" class="nav-link">📲 Appli</a></li>
                     <li><a href="#contact" class="nav-link">Nous Trouver</a></li>
                     <li><a href="#booking" class="nav-link btn-primary nav-menu-cta">Prendre RDV</a></li>
                 </ul>
@@ -665,6 +666,7 @@
                     <a href="#booking" class="btn btn-accent">Prendre Rendez-vous</a>
                     <a href="#services" class="btn btn-outline">Découvrir les Tarifs</a>
                 </div>
+                <a href="#app" class="hero-app-link reveal" data-hide-standalone>📲 Installez notre appli gratuite →</a>
                 <div class="hero-features reveal">
                     <div class="hero-feature-item"><i data-feather="check-circle"></i> Rendez-vous instantané en ligne</div>
                     <div class="hero-feature-item"><i data-feather="check-circle"></i> Coiffures & dégradés de précision</div>
@@ -674,6 +676,47 @@
             <div class="hero-scroll reveal">
                 <span>Découvrir</span>
                 <div class="scroll-line"></div>
+            </div>
+        </section>
+
+        <!-- 📲 Notre appli -->
+        <section class="app-section section container" id="app" data-hide-standalone>
+            <div class="app-card reveal">
+                <div class="app-intro">
+                    <img src="icons/icon-192.png" alt="Icône de l'appli Barber c l'hair" class="app-intro-icon" width="84" height="84" loading="lazy">
+                    <span class="app-tag">Gratuit • Sans App Store</span>
+                    <h2 class="section-title">Notre Appli</h2>
+                    <div class="section-line"></div>
+                    <p class="app-lead">Ajoutez Barber c l'hair sur votre écran d'accueil et réservez en 1 clic.</p>
+                    <ul class="app-perks">
+                        <li>⚡ Ouverture instantanée</li>
+                        <li>📅 Réservation en 1 clic</li>
+                        <li>📴 Tarifs & horaires même sans réseau</li>
+                        <li>🔒 Aucune inscription, 0 Mo de stockage</li>
+                    </ul>
+                    <button type="button" class="btn btn-accent app-install-direct" id="app-install-direct" hidden>📲 Installer maintenant</button>
+                </div>
+
+                <div class="app-tuto">
+                    <div class="app-tabs" role="tablist" aria-label="Choisissez votre téléphone">
+                        <button type="button" class="app-tab" role="tab" id="tab-ios" aria-controls="panel-ios" aria-selected="true">📱 iPhone</button>
+                        <button type="button" class="app-tab" role="tab" id="tab-android" aria-controls="panel-android" aria-selected="false">🤖 Android</button>
+                    </div>
+
+                    <ol class="app-steps" role="tabpanel" id="panel-ios" aria-labelledby="tab-ios">
+                        <li><b>1</b><div><strong>Ouvrez le site dans Safari</strong><span>L'application boussole bleue 🧭 (pas Chrome ni Instagram).</span></div></li>
+                        <li><b>2</b><div><strong>Appuyez sur Partager <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></strong><span>Le carré avec une flèche, en bas de l'écran. Pas visible ? Touchez <strong>•••</strong> puis <strong>Partager</strong>.</span></div></li>
+                        <li><b>3</b><div><strong>« Sur l'écran d'accueil » ➕</strong><span>Faites défiler la liste vers le bas pour le trouver.</span></div></li>
+                        <li><b>4</b><div><strong>Touchez « Ajouter »</strong><span>En haut à droite. L'icône <strong>BC</strong> apparaît sur votre écran 🎉</span></div></li>
+                    </ol>
+
+                    <ol class="app-steps" role="tabpanel" id="panel-android" aria-labelledby="tab-android" hidden>
+                        <li><b>1</b><div><strong>Ouvrez le site dans Chrome</strong><span>L'application ronde rouge, jaune, verte et bleue.</span></div></li>
+                        <li><b>2</b><div><strong>Touchez les 3 points ⋮</strong><span>En haut à droite de l'écran.</span></div></li>
+                        <li><b>3</b><div><strong>« Installer l'application »</strong><span>Ou « Ajouter à l'écran d'accueil » selon votre téléphone.</span></div></li>
+                        <li><b>4</b><div><strong>Confirmez « Installer »</strong><span>L'icône <strong>BC</strong> apparaît avec vos applis 🎉</span></div></li>
+                    </ol>
+                </div>
             </div>
         </section>
 
@@ -1512,6 +1555,43 @@
             window.addEventListener('offline', () => update(false));
             window.addEventListener('online', () => update(false));
             update(true);
+        })();
+
+        // Section « Notre appli » : onglets iPhone / Android + installation directe
+        (function () {
+            const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+            if (standalone) {
+                document.querySelectorAll('[data-hide-standalone]').forEach((el) => el.remove());
+                return;
+            }
+            const tabs = { ios: document.getElementById('tab-ios'), android: document.getElementById('tab-android') };
+            const panels = { ios: document.getElementById('panel-ios'), android: document.getElementById('panel-android') };
+            if (!tabs.ios) return;
+            const select = (k) => {
+                Object.keys(tabs).forEach((n) => {
+                    tabs[n].setAttribute('aria-selected', n === k);
+                    panels[n].hidden = n !== k;
+                });
+            };
+            tabs.ios.addEventListener('click', () => select('ios'));
+            tabs.android.addEventListener('click', () => select('android'));
+            if (/Android/i.test(navigator.userAgent)) select('android');
+
+            const direct = document.getElementById('app-install-direct');
+            let deferred = null;
+            window.addEventListener('beforeinstallprompt', (e) => { deferred = e; direct.hidden = false; });
+            direct.addEventListener('click', async () => {
+                if (!deferred) return;
+                try {
+                    deferred.prompt();
+                    await deferred.userChoice;
+                } catch (e) {
+                    document.getElementById('app').scrollIntoView({ behavior: 'smooth' });
+                }
+                deferred = null;
+                direct.hidden = true;
+            });
+            window.addEventListener('appinstalled', () => { direct.hidden = true; });
         })();
 
         (function () {
