@@ -3378,7 +3378,16 @@ p, .service-desc, .testimonial-text { text-wrap: pretty; }
 }
 .app-install-direct[hidden] { display: none !important; }
 
-/* PC : bouton « Prendre RDV » du menu décalé vers la gauche (moins collé au bord) */
-@media screen and (min-width: 769px) {
-    .nav-menu { margin-right: clamp(1.5rem, 3.5vw, 3.5rem); }
+/* PC : le menu doit toujours tenir en entier (bouton « Prendre RDV » jamais coupé) */
+@media screen and (min-width: 993px) {
+    .nav { gap: 1rem; }
+    .logo { flex-shrink: 0; white-space: nowrap; }
+    .nav-menu { margin-right: 0; min-width: 0; }
+    .nav-list { gap: clamp(0.9rem, 2vw, 2.2rem); flex-wrap: nowrap; }
+    .nav-link { white-space: nowrap; letter-spacing: 1px; font-size: clamp(0.72rem, 0.55rem + 0.35vw, 0.875rem); }
+    .nav-menu-cta { padding-left: 1.1rem; padding-right: 1.1rem; }
+    .nav-actions { flex-shrink: 0; margin-left: 0.5rem; }
+}
+@media screen and (min-width: 993px) and (max-width: 1180px) {
+    .logo { font-size: 1.25rem; letter-spacing: 2px; }
 }
