@@ -11,15 +11,56 @@
   "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "categories": ["lifestyle", "beauty"],
+  "categories": [
+    "lifestyle",
+    "beauty"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ],
   "shortcuts": [
-    { "name": "Prendre rendez-vous", "short_name": "Réserver", "url": "./?source=app#booking", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Tarifs", "url": "./?source=app#services", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Horaires & adresse", "short_name": "Nous trouver", "url": "./?source=app#contact", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Prendre rendez-vous",
+      "short_name": "Réserver",
+      "url": "./?source=app#booking",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Tarifs",
+      "url": "./?source=app#services",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Horaires & adresse",
+      "short_name": "Nous trouver",
+      "url": "./?source=app#contact",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }
