@@ -3217,3 +3217,12 @@ p, .service-desc, .testimonial-text { text-wrap: pretty; }
     .cal-date      { font-size: 0.78rem; }
     .cal-day-name  { font-size: 0.6rem; }
 }
+
+/* Appli installée : le contenu du haut ne doit pas passer sous le menu + l'encoche */
+@media (display-mode: standalone) {
+    .hero { padding-top: calc(8rem + env(safe-area-inset-top, 0px)); }
+    section[id] { scroll-margin-top: calc(80px + env(safe-area-inset-top, 0px)); }
+}
+@media (display-mode: standalone) and (max-width: 768px) {
+    .hero { padding-top: calc(7rem + env(safe-area-inset-top, 0px)); }
+}
