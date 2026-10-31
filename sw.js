@@ -2,19 +2,34 @@
 // Pages HTML : réseau d'abord (toujours à jour), cache en secours hors-ligne.
 // Fichiers statiques du site : cache d'abord puis mise à jour en arrière-plan.
 // Firebase / API externes : jamais mis en cache (réservations en temps réel).
-const CACHE = 'barber-v2';
+const CACHE = 'barber-v3';
 const PRECACHE = [
   './',
   './index.html',
-  './style.css?v=2.22',
+  './style.css?v=2.23',
   './script.js?v=2.24',
   './manifest.json',
   './icons/icon-192.png',
-  './images/IMG_1006.jpg'
+  './icons/icon-512.png',
+  './images/IMG_1006.jpg',
+  './images/salon_tonneau.jpg',
+  './images/salon_coin_attente.jpg',
+  './images/salon_etagere_radio.jpg',
+  './images/aqa_wax_eclaire.jpg',
+  './images/immortal_eclaire.jpg',
+  './images/produit_nishman_cologne.jpg',
+  './images/produit_etagere_bois1.jpg',
+  './images/produit_etagere_bois2.jpg',
+  './images/produit_oud_cologne.jpg'
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  // Les images de la galerie sont « bonus » : si l'une échoue, l'installation continue
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => Promise.allSettled(PRECACHE.map((u) => c.add(u))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {

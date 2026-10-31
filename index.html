@@ -9,7 +9,7 @@
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0a0a0a">
+    <meta name="theme-color" content="#000000">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -44,7 +44,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.22">
+    <link rel="stylesheet" href="style.css?v=2.23">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er octobre au 2 novembre) -->
     <style id="hw-style">
@@ -1479,7 +1479,40 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+            // Nouvelle version publiée : on recharge une seule fois pour l'afficher
+            const hadController = !!navigator.serviceWorker.controller;
+            let reloaded = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!hadController || reloaded) return;
+                if (document.querySelector('dialog[open], .booking-modal.show, .booking-modal.active, .admin-modal.show')) return; // pas pendant une réservation
+                reloaded = true;
+                location.reload();
+            });
         }
+
+        // Bandeau hors connexion
+        (function () {
+            const bar = document.createElement('div');
+            bar.className = 'offline-bar';
+            bar.setAttribute('role', 'status');
+            document.body.appendChild(bar);
+            let t;
+            const update = (first) => {
+                clearTimeout(t);
+                if (!navigator.onLine) {
+                    bar.classList.remove('online');
+                    bar.textContent = 'Hors connexion · réservation indisponible';
+                    bar.classList.add('show');
+                } else if (!first) {
+                    bar.classList.add('online');
+                    bar.textContent = 'De retour en ligne';
+                    t = setTimeout(() => bar.classList.remove('show'), 2500);
+                }
+            };
+            window.addEventListener('offline', () => update(false));
+            window.addEventListener('online', () => update(false));
+            update(true);
+        })();
 
         (function () {
             const KEY = 'barber_pwa_dismissed';

@@ -3109,3 +3109,51 @@ img {
     .pwa-install { bottom: 24px; left: auto; right: 24px; transform: translateY(140%); }
     .pwa-install.show { transform: translateY(0); }
 }
+
+/* ============================================
+   📱 MODE APPLI (PWA installée)
+   ============================================ */
+@media (display-mode: standalone) {
+    /* Barre d'état iPhone transparente : on décale le menu sous l'encoche */
+    .header {
+        padding-top: env(safe-area-inset-top, 0px);
+        height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+    }
+    .header.scroll { height: calc(70px + env(safe-area-inset-top, 0px)); }
+    /* Sensation d'appli native : pas de rebond ni de sélection involontaire */
+    html, body { overscroll-behavior-y: none; }
+    a, button, .gallery-item, .mobile-dock-btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+}
+
+/* Bandeau hors connexion */
+.offline-bar {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    left: 50%;
+    transform: translate(-50%, -150%);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 50px;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+    white-space: nowrap;
+}
+.offline-bar.show { transform: translate(-50%, 0); }
+.offline-bar::before {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ff6b5a;
+    box-shadow: 0 0 10px #ff6b5a;
+}
+.offline-bar.online::before { background: #4ade80; box-shadow: 0 0 10px #4ade80; }
