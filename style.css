@@ -3377,3 +3377,8 @@ p, .service-desc, .testimonial-text { text-wrap: pretty; }
     .hero-app-link, .app-intro-icon, .app-steps li { animation: none; }
 }
 .app-install-direct[hidden] { display: none !important; }
+
+/* PC : bouton « Prendre RDV » du menu décalé vers la gauche (moins collé au bord) */
+@media screen and (min-width: 769px) {
+    .nav-menu { margin-right: clamp(1.5rem, 3.5vw, 3.5rem); }
+}
