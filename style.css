@@ -3435,3 +3435,157 @@ p, .service-desc, .testimonial-text { text-wrap: pretty; }
     .reveal { opacity: 1; transform: none; transition: none; }
     html { scroll-behavior: auto; }
 }
+
+/* ============================================================
+   ✨ DESIGN MODERNE – couche de modernisation
+   Verre dépoli, rayons plus généreux, boutons en pilule,
+   ombres douces, barre de progression, focus doré.
+   (Se place au-dessus du style existant : facile à retirer.)
+   ============================================================ */
+:root {
+    --radius-sm: 12px;
+    --radius-md: 20px;
+    --radius-lg: 28px;
+    --glass: linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 60%);
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* Barre de progression de lecture (CSS pur, ignorée si non supportée) */
+html::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent-gold-dark), var(--accent-gold-light));
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    z-index: 3000;
+    pointer-events: none;
+}
+@supports (animation-timeline: scroll()) {
+    html::before {
+        animation: readProgress linear both;
+        animation-timeline: scroll(root block);
+    }
+    @keyframes readProgress { to { transform: scaleX(1); } }
+}
+
+/* Rythme des sections plus aéré */
+.section { padding: clamp(4rem, 3rem + 5vw, 7.5rem) 0; }
+.section-header { margin-bottom: clamp(2.2rem, 2rem + 2vw, 4rem); }
+
+/* Menu : verre dépoli plus net, liens en douceur */
+.header.scroll {
+    background: rgba(8, 8, 8, 0.6);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Boutons : pilules fines avec reflet au survol */
+.btn {
+    border-radius: var(--radius-pill);
+    padding: 0.95rem 2rem;
+    letter-spacing: 1.2px;
+    font-weight: 700;
+    border-width: 1px;
+}
+.btn-accent, .btn-outline, .btn-primary { border-radius: var(--radius-pill); }
+.btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.9s var(--ease-soft, ease);
+    pointer-events: none;
+}
+.btn:hover::after { transform: translateX(120%); }
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0) scale(0.98); }
+
+/* Titres : plus de présence */
+.hero-title { letter-spacing: -0.5px; font-weight: 800; }
+.section-title { letter-spacing: -0.3px; }
+
+/* Cartes en verre dépoli */
+.service-card, .testimonial-card, .app-tuto, .contact-item,
+.faq-item, .about-stats > *, .google-trust-badge {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.06);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+}
+.service-card, .testimonial-card { border-radius: var(--radius-lg); }
+.service-card:hover, .testimonial-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(212, 175, 55, 0.4);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55), 0 0 40px rgba(212, 175, 55, 0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.faq-item { margin-bottom: 0.75rem; border-bottom: 1px solid var(--glass-border); overflow: hidden; }
+.faq-item:hover { border-color: rgba(212, 175, 55, 0.3); }
+
+/* Galerie : photos arrondies, zoom lent */
+.gallery-item {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    border-color: var(--glass-border);
+    isolation: isolate;
+}
+.gallery-item img { transition: transform 1.2s var(--ease-soft, ease); }
+.gallery-item:hover img { transform: scale(1.06); }
+
+/* Réservation : créneaux et jours en pastilles */
+.slot-btn, .cal-date { border-radius: 14px; }
+.slot-btn:hover, .cal-date:not(.disabled):hover { transform: translateY(-2px); }
+
+/* Fenêtre de réservation */
+.booking-modal-card {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+}
+.booking-modal-overlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* Champs de formulaire */
+.modal-form input, .modal-form select, .modal-form textarea {
+    border-radius: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+.modal-form input:focus, .modal-form select:focus, .modal-form textarea:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.16);
+    outline: none;
+}
+
+/* Accessibilité : focus clavier doré et visible */
+:focus-visible { outline: 2px solid var(--accent-gold-light); outline-offset: 3px; border-radius: 8px; }
+
+/* Pied de page */
+.footer {
+    background: linear-gradient(180deg, var(--bg-alt), #000);
+    border-top: 1px solid var(--glass-border);
+}
+
+/* Barre de défilement discrète */
+html { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.5) #0a0a0a; }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: linear-gradient(var(--accent-gold-dark), var(--accent-gold)); border-radius: 10px; border: 2px solid #0a0a0a; }
+
+/* Mobile : on allège les effets coûteux */
+@media screen and (max-width: 768px) {
+    .service-card, .testimonial-card, .app-tuto, .contact-item, .faq-item, .google-trust-badge {
+        backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    .service-card:hover, .testimonial-card:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html::before { animation: none; transform: scaleX(0); }
+    .btn::after { display: none; }
+}
