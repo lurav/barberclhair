@@ -1741,6 +1741,62 @@ img {
     margin-bottom: 1.5rem;
 }
 
+/* Boîte Rappel Notification Téléphone */
+.booking-reminder-box {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    padding: 1.1rem;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(212, 175, 55, 0.03));
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: var(--radius-md);
+    text-align: left;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+
+.reminder-box-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--accent-gold);
+    margin-bottom: 0.35rem;
+}
+
+.reminder-box-title i {
+    width: 18px;
+    height: 18px;
+    color: var(--accent-gold);
+    flex-shrink: 0;
+}
+
+.reminder-box-desc {
+    font-size: 0.82rem;
+    color: var(--text-light);
+    margin: 0 0 0.85rem 0;
+    line-height: 1.45;
+}
+
+.btn-reminder-pulse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+    transition: var(--transition-fast);
+}
+
+.btn-reminder-pulse.btn-reminder-done {
+    background: rgba(37, 211, 102, 0.2) !important;
+    border: 1px solid rgba(37, 211, 102, 0.6) !important;
+    color: #4ade80 !important;
+    box-shadow: 0 2px 10px rgba(37, 211, 102, 0.25) !important;
+}
+
 
 /* ==========================================================================
    ADMIN STYLES
@@ -1811,6 +1867,137 @@ img {
     background: #ff6b6b;
     color: #fff;
     border-color: #ff6b6b;
+}
+
+/* Carte Passerelle SMS Android */
+.admin-gateway-card {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.08), rgba(255, 255, 255, 0.02));
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.8rem 0.95rem;
+    margin-bottom: 0.85rem;
+    transition: var(--transition-fast);
+}
+
+.admin-gateway-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.badge-status {
+    font-size: 0.68rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.badge-status.configured {
+    background: rgba(37, 211, 102, 0.2);
+    color: #4ade80;
+    border: 1px solid rgba(37, 211, 102, 0.45);
+}
+
+.badge-status.not-configured {
+    background: rgba(255, 255, 255, 0.08);
+    color: #9ca3af;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+/* Bandeau d'information SMS dans l'espace planning */
+.admin-sms-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: linear-gradient(135deg, rgba(37, 211, 102, 0.1), rgba(37, 211, 102, 0.03));
+    border: 1px solid rgba(37, 211, 102, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 1rem;
+    font-size: 0.8rem;
+    color: #d1fae5;
+    line-height: 1.4;
+}
+
+.admin-sms-hint i {
+    width: 20px;
+    height: 20px;
+    color: #4ade80;
+    flex-shrink: 0;
+}
+
+/* Actions planning : SMS, WhatsApp, Supprimer */
+.admin-booking-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.admin-sms-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: linear-gradient(135deg, rgba(37, 211, 102, 0.22), rgba(18, 140, 126, 0.28));
+    border: 1px solid rgba(37, 211, 102, 0.5);
+    color: #4ade80;
+    padding: 0.45rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.admin-sms-btn:hover {
+    background: #25d366;
+    color: #052e16;
+    border-color: #25d366;
+    box-shadow: 0 3px 12px rgba(37, 211, 102, 0.4);
+    transform: translateY(-1px);
+}
+
+.admin-sms-btn.sent {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #9ca3af;
+}
+
+.admin-sms-btn.sent:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f3f4f6;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: none;
+    transform: none;
+}
+
+.admin-wa-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37, 211, 102, 0.08);
+    border: 1px solid rgba(37, 211, 102, 0.28);
+    color: #34d399;
+    padding: 0.45rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.admin-wa-btn:hover {
+    background: rgba(37, 211, 102, 0.22);
+    border-color: #25d366;
+    color: #fff;
 }
 
 /* Planning : filtre par coiffeur */
@@ -2316,11 +2503,11 @@ img {
         padding: 0.42rem 0.95rem;
         font-size: 0.78rem;
         font-weight: 700;
-        color: #fff;
-        background: linear-gradient(135deg, var(--hw-orange), var(--hw-orange-l));
+        color: #000;
+        background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light));
         border-radius: 999px;
         text-decoration: none;
-        box-shadow: 0 2px 10px rgba(255, 106, 0, 0.45);
+        box-shadow: 0 2px 10px var(--accent-gold-glow);
         transition: transform 0.15s ease;
     }
 
@@ -2760,10 +2947,30 @@ img {
         font-weight: 600;
     }
 
-    .admin-booking-item .admin-cancel-btn {
+    .admin-booking-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
         width: 100%;
-        text-align: center;
-        padding: 0.55rem;
+        margin-top: 0.35rem;
+    }
+
+    .admin-booking-actions .admin-sms-btn {
+        flex: 1 1 auto;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.82rem;
+        justify-content: center;
+    }
+
+    .admin-booking-actions .admin-wa-btn {
+        flex: 0 0 auto;
+        padding: 0.55rem 0.75rem;
+    }
+
+    .admin-booking-actions .admin-cancel-btn {
+        flex: 0 0 auto;
+        padding: 0.55rem 0.75rem;
     }
 
     /* CONTACT SECTION MOBILE */

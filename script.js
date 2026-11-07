@@ -913,6 +913,20 @@ if (bookingForm) {
 
             saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, booked.id);
             showSuccess(booked);
+
+            // Déclenchement automatique du SMS de confirmation (via passerelle Android si configurée)
+            fetch('/api/send-sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'confirmation',
+                    phone: phoneVal,
+                    clientName: nameVal,
+                    dateStr: currentSlotForBooking.dateFull,
+                    time: currentSlotForBooking.time,
+                    barberName: booked.name
+                })
+            }).catch(e => console.warn('Passerelle SMS non joignable :', e));
         } catch (err) {
             console.warn("Échec de l'enregistrement de la réservation :", err);
             showBookingError("Connexion impossible, votre rendez-vous n'a pas été enregistré. Vérifiez votre connexion internet et réessayez, ou appelez le salon au 07 49 15 38 55.");
@@ -1063,10 +1077,18 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
     const descICS = `Rendez-vous Barber C L'Hair\\nForfait : ${service}\\n${barberLine ? barberLine + '\\n' : ''}Client : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
 
     const calBtn = document.getElementById('btn-add-calendar');
+    const calText = document.getElementById('btn-add-calendar-text');
     if (!calBtn) return;
+
+    if (calText) calText.textContent = 'Activer mon rappel (1h avant)';
+    calBtn.classList.remove('btn-reminder-done');
 
     calBtn.onclick = (e) => {
         if (e) e.preventDefault();
+
+        if (calText) calText.textContent = '✓ Rappel activé sur votre téléphone !';
+        calBtn.classList.add('btn-reminder-done');
+
         const ua = navigator.userAgent || '';
         const isAndroid = /Android/i.test(ua);
         // iPadOS se présente comme un Mac : on détecte l'écran tactile
@@ -1122,6 +1144,40 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
+}
+
+// ---- Fonctions Rappels SMS & WhatsApp pour le Salon ----
+function getSmsUrl(phone, text) {
+    const cleanPhone = String(phone || '').replace(/[^\d+]/g, '');
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+    const sep = isIOS ? '&' : '?';
+    return `sms:${cleanPhone}${sep}body=${encodeURIComponent(text || '')}`;
+}
+
+function getWhatsAppUrl(phone, text) {
+    let clean = String(phone || '').replace(/\D/g, '');
+    if (clean.startsWith('0') && clean.length === 10) {
+        clean = '33' + clean.slice(1);
+    }
+    return `https://wa.me/${clean}?text=${encodeURIComponent(text || '')}`;
+}
+
+function buildReminderMessage(booking, dateIso) {
+    const rawDate = dateIso || booking.date;
+    let dateStr = '';
+    if (rawDate) {
+        const [y, m, d] = String(rawDate).split('-').map(Number);
+        if (y && m && d) {
+            dateStr = formatDateFull(new Date(y, m - 1, d));
+        }
+    }
+    const barber = getBarberName(booking.barberId || booking.barber);
+    const client = (booking.clientName || 'Client').trim();
+    const time = booking.time || '';
+    const service = booking.service ? ` (${booking.service})` : '';
+
+    return `Bonjour ${client}, petit rappel de votre rendez-vous chez Barber C L'Hair le ${dateStr} à ${time}${service} avec ${barber}.\nAdresse : 33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries.\nEn cas d'empêchement, merci de prévenir au 07 49 15 38 55. À bientôt !`;
 }
 
 // Week Navigation Buttons
@@ -1269,9 +1325,163 @@ function renderAdminBarberFilter(counts = {}) {
     });
 }
 
+// ---- Passerelle SMS Android (MacroDroid / Webhook 0 €) ----
+let gatewayControlsInitialized = false;
+
+async function loadGatewaySettings() {
+    let url = localStorage.getItem('barber_sms_gateway_url') || '';
+    if (db) {
+        try {
+            const doc = await db.collection('bookings').doc('_config_sms_gateway').get();
+            if (doc.exists && doc.data()?.url) {
+                url = doc.data().url;
+                localStorage.setItem('barber_sms_gateway_url', url);
+            }
+        } catch (e) {
+            console.warn('Lecture config gateway Firestore :', e);
+        }
+    }
+    const input = document.getElementById('admin-gateway-url');
+    const badge = document.getElementById('gateway-status-badge');
+    if (input && url && !input.value) input.value = url;
+    if (badge) {
+        if (url) {
+            badge.textContent = '🟢 Actif';
+            badge.className = 'badge-status configured';
+        } else {
+            badge.textContent = 'Non configuré';
+            badge.className = 'badge-status not-configured';
+        }
+    }
+    if (!gatewayControlsInitialized) {
+        initGatewayControls();
+    }
+}
+
+function initGatewayControls() {
+    gatewayControlsInitialized = true;
+    const gatewayToggle = document.getElementById('admin-gateway-toggle');
+    const gatewayBody = document.getElementById('admin-gateway-body');
+    const gatewayChevron = document.getElementById('gateway-chevron');
+    if (gatewayToggle && gatewayBody) {
+        gatewayToggle.onclick = () => {
+            const open = gatewayBody.style.display !== 'none';
+            gatewayBody.style.display = open ? 'none' : 'block';
+            if (gatewayChevron) gatewayChevron.style.transform = open ? '' : 'rotate(180deg)';
+        };
+    }
+
+    const saveGatewayBtn = document.getElementById('admin-save-gateway-btn');
+    if (saveGatewayBtn) {
+        saveGatewayBtn.onclick = async () => {
+            const input = document.getElementById('admin-gateway-url');
+            const val = (input?.value || '').trim();
+            const fb = document.getElementById('admin-gateway-feedback');
+            saveGatewayBtn.disabled = true;
+            saveGatewayBtn.textContent = '...';
+            try {
+                localStorage.setItem('barber_sms_gateway_url', val);
+                if (db) {
+                    await db.collection('bookings').doc('_config_sms_gateway').set({
+                        url: val,
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                }
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.color = '#4ade80';
+                    fb.textContent = val ? '✓ Passerelle enregistrée avec succès !' : '✓ Passerelle désactivée.';
+                }
+                loadGatewaySettings();
+            } catch (err) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.color = '#ff6b6b';
+                    fb.textContent = 'Erreur d\'enregistrement : ' + err.message;
+                }
+            } finally {
+                saveGatewayBtn.disabled = false;
+                saveGatewayBtn.textContent = 'Enregistrer';
+            }
+        };
+    }
+
+    const testSmsBtn = document.getElementById('admin-test-sms-btn');
+    if (testSmsBtn) {
+        testSmsBtn.onclick = async () => {
+            const fb = document.getElementById('admin-gateway-feedback');
+            const phoneTest = prompt("Numéro de téléphone pour recevoir le SMS test :", "0749153855");
+            if (!phoneTest) return;
+            testSmsBtn.disabled = true;
+            testSmsBtn.textContent = 'Envoi...';
+            if (fb) { fb.style.display = 'block'; fb.style.color = '#ffd166'; fb.textContent = 'Envoi du SMS test vers ' + phoneTest + '...'; }
+            try {
+                const res = await fetch('/api/send-sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'test',
+                        phone: phoneTest
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (fb) { fb.style.color = '#4ade80'; fb.textContent = '✓ SMS test transmis à votre téléphone Android !'; }
+                } else {
+                    if (fb) { fb.style.color = '#ff6b6b'; fb.textContent = '⚠️ ' + (data.message || 'Passerelle non connectée'); }
+                }
+            } catch (err) {
+                if (fb) { fb.style.color = '#ff6b6b'; fb.textContent = 'Erreur : ' + err.message; }
+            } finally {
+                testSmsBtn.disabled = false;
+                testSmsBtn.textContent = '📲 Tester un SMS';
+            }
+        };
+    }
+
+    const cronTomorrowBtn = document.getElementById('admin-cron-tomorrow-btn');
+    if (cronTomorrowBtn) {
+        cronTomorrowBtn.onclick = async () => {
+            if (!confirm("Envoyer automatiquement un SMS de rappel à tous les clients prévus demain ?")) return;
+            const fb = document.getElementById('admin-gateway-feedback');
+            cronTomorrowBtn.disabled = true;
+            cronTomorrowBtn.textContent = 'Rappels en cours...';
+            try {
+                const res = await fetch('/api/cron-reminders');
+                const data = await res.json();
+                if (data.success) {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.color = '#4ade80';
+                        fb.textContent = `✓ ${data.sentCount} rappel(s) envoyé(s) pour demain (${data.totalBookings} RDV au total).`;
+                    }
+                    showAdminPlanning();
+                } else {
+                    if (fb) {
+                        fb.style.display = 'block';
+                        fb.style.color = '#ff6b6b';
+                        fb.textContent = '⚠️ ' + (data.message || 'Erreur lors des rappels');
+                    }
+                }
+            } catch (err) {
+                if (fb) {
+                    fb.style.display = 'block';
+                    fb.style.color = '#ff6b6b';
+                    fb.textContent = 'Erreur : ' + err.message;
+                }
+            } finally {
+                cronTomorrowBtn.disabled = false;
+                cronTomorrowBtn.textContent = '📢 Rappeler les clients de demain';
+            }
+        };
+    }
+}
+
 async function showAdminPlanning() {
     if (adminAuthBox) adminAuthBox.style.display = 'none';
     if (adminContentBox) adminContentBox.style.display = 'block';
+
+    loadGatewaySettings();
 
     const selectedIso = formatDateISO(selectedDate);
     if (adminFilterDate) {
@@ -1316,6 +1526,14 @@ async function showAdminPlanning() {
                 const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === b.barberId));
                 const item = document.createElement('div');
                 item.className = 'admin-booking-item';
+
+                const reminderKey = `barber_reminder_sent_${b.id}`;
+                const alreadySent = !!localStorage.getItem(reminderKey);
+                const reminderMsg = buildReminderMessage(b, selectedIso);
+                const hasPhone = !!(b.clientPhone && String(b.clientPhone).replace(/\D/g, '').length >= 9);
+                const smsUrl = hasPhone ? getSmsUrl(b.clientPhone, reminderMsg) : '#';
+                const waUrl = hasPhone ? getWhatsAppUrl(b.clientPhone, reminderMsg) : '#';
+
                 item.innerHTML = `
                     <div class="admin-booking-header">
                         <span class="admin-booking-time">${escapeHtml(b.time || '')}</span>
@@ -1330,22 +1548,46 @@ async function showAdminPlanning() {
                             ${b.clientNote ? `<div style="margin-top: 0.3rem;"><em>Note: ${escapeHtml(b.clientNote)}</em></div>` : ''}
                         </div>
                     </div>
+                    <div class="admin-booking-actions">
+                        ${hasPhone ? `
+                            <a href="${escapeHtml(smsUrl)}" class="admin-sms-btn ${alreadySent ? 'sent' : ''}" title="Ouvrir le SMS de rappel pré-rempli sur votre téléphone">
+                                <span class="sms-label">${alreadySent ? '✓ SMS préparé' : '💬 Rappel SMS'}</span>
+                            </a>
+                            <a href="${escapeHtml(waUrl)}" target="_blank" rel="noopener" class="admin-wa-btn" title="Envoyer par WhatsApp">
+                                <span>WhatsApp</span>
+                            </a>
+                        ` : ''}
+                        <button type="button" class="admin-cancel-btn" title="Supprimer ce rendez-vous">Supprimer</button>
+                    </div>
                 `;
 
-                const cancelBtn = document.createElement('button');
-                cancelBtn.className = 'admin-cancel-btn';
-                cancelBtn.textContent = 'Supprimer';
-                cancelBtn.addEventListener('click', async () => {
-                    if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
-                        await db.collection('bookings').doc(b.id).delete();
-                        showAdminPlanning();
-                        loadSlotsForSelectedDate();
+                if (hasPhone) {
+                    const smsLink = item.querySelector('.admin-sms-btn');
+                    if (smsLink) {
+                        smsLink.addEventListener('click', () => {
+                            localStorage.setItem(reminderKey, new Date().toISOString());
+                            smsLink.classList.add('sent');
+                            const label = smsLink.querySelector('.sms-label');
+                            if (label) label.textContent = '✓ SMS préparé';
+                        });
                     }
-                });
+                }
 
-                item.appendChild(cancelBtn);
+                const cancelBtn = item.querySelector('.admin-cancel-btn');
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', async () => {
+                        if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
+                            await db.collection('bookings').doc(b.id).delete();
+                            localStorage.removeItem(reminderKey);
+                            showAdminPlanning();
+                            loadSlotsForSelectedDate();
+                        }
+                    });
+                }
+
                 adminBookingsList.appendChild(item);
             });
+            if (window.feather) feather.replace();
         } catch (e) {
             console.error("Erreur de chargement des réservations:", e);
             const local = getLocalBookings(selectedIso);

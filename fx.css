@@ -34,17 +34,8 @@
 }
 .btn { transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .3s, background .3s, color .3s; }
 
-/* Cartes services : inclinaison 3D + spot lumineux qui suit la souris */
+/* Galerie : zoom au hover */
 @media (hover: hover) and (pointer: fine) {
-    .service-card { transform-style: preserve-3d; will-change: transform; position: relative; }
-    .service-card.fx-tilting { transition: transform .08s linear !important; }
-    .service-card::before {
-        content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-        background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.09), transparent 45%);
-        opacity: 0; transition: opacity .3s; z-index: 1;
-    }
-    .service-card:hover::before { opacity: 1; }
-
     .gallery-item img { transition: transform .8s cubic-bezier(.2,.8,.2,1), filter .5s; }
     .gallery-item:hover img { transform: scale(1.07); filter: saturate(1.15) contrast(1.05); }
 }
@@ -87,13 +78,8 @@
 .hero { position: relative; }
 .fx-dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 
-/* Halo lumineux qui suit la souris */
-.fx-cursor {
-    position: fixed; top: 0; left: 0; width: 420px; height: 420px; margin: -210px 0 0 -210px;
-    border-radius: 50%; pointer-events: none; z-index: 0; mix-blend-mode: screen;
-    background: radial-gradient(circle, var(--accent-gold-glow, rgba(212,175,55,.18)) 0%, transparent 60%);
-    opacity: .55; transition: opacity .4s;
-}
+
+
 
 /* Titres de section : trait doré qui se dessine */
 .section-title { position: relative; }

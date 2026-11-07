@@ -67,21 +67,7 @@
         loop();
     }
 
-    // Halo qui suit la souris
-    if (finePointer && !reduced) {
-        const glow = document.createElement('div');
-        glow.className = 'fx-cursor';
-        glow.setAttribute('aria-hidden', 'true');
-        document.body.appendChild(glow);
-        let tx = innerWidth / 2, ty = innerHeight / 2, cx = tx, cy = ty;
-        addEventListener('pointermove', (e) => { tx = e.clientX; ty = e.clientY; }, { passive: true });
-        const follow = () => {
-            cx += (tx - cx) * .12; cy += (ty - cy) * .12;
-            glow.style.transform = `translate(${cx}px, ${cy}px)`;
-            requestAnimationFrame(follow);
-        };
-        follow();
-    }
+
 
     // 1. Barre de progression de scroll
     const bar = document.createElement('div');
@@ -118,21 +104,8 @@
 
     if (reduced || !finePointer) return;
 
-    // 3. Inclinaison 3D + spot lumineux sur les cartes services
-    document.querySelectorAll('.service-card').forEach(card => {
-        card.addEventListener('pointermove', (e) => {
-            const r = card.getBoundingClientRect();
-            const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-            card.classList.add('fx-tilting');
-            card.style.setProperty('--mx', `${x * 100}%`);
-            card.style.setProperty('--my', `${y * 100}%`);
-            card.style.transform = `perspective(900px) rotateX(${(0.5 - y) * 8}deg) rotateY(${(x - 0.5) * 8}deg) translateY(-6px)`;
-        });
-        card.addEventListener('pointerleave', () => {
-            card.classList.remove('fx-tilting');
-            card.style.transform = '';
-        });
-    });
+
+
 
     // 4. Boutons magnétiques
     document.querySelectorAll('.hero-btns .btn, .btn-accent').forEach(btn => {

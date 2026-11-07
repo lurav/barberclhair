@@ -1,4 +1,18 @@
 <!DOCTYPE html>
+<script>
+// Force cache clear v21 — à supprimer après le 5 nov 2026
+(function(){
+  var KEY = 'cache-purge-v21';
+  if (!sessionStorage.getItem(KEY) && 'serviceWorker' in navigator && 'caches' in window) {
+    sessionStorage.setItem(KEY, '1');
+    caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); });
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ r.unregister(); });
+      if(regs.length) location.reload(true);
+    });
+  }
+})();
+</script>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -46,8 +60,8 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.32">
-    <link rel="stylesheet" href="fx.css?v=1.2">
+    <link rel="stylesheet" href="style.css?v=2.34">
+    <link rel="stylesheet" href="fx.css?v=1.4">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er au 31 octobre, coupé le 1er novembre à 00h00) -->
     <style id="hw-style">
@@ -1182,14 +1196,19 @@
                     </div>
                     <p class="success-reminder">Paiement sur place au salon. Merci d'arriver 5 minutes à l'avance.</p>
 
-                    <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-top: 1.25rem;">
-                        <!-- Bouton Unique Agenda Téléphone -->
-                        <button type="button" id="btn-add-calendar" class="btn btn-primary w-full" style="padding: 0.85rem 1rem; font-size: 0.92rem; justify-content: center; gap: 0.5rem;" title="Ajouter à l'agenda de votre téléphone">
-                            <i data-feather="calendar" style="width: 18px; height: 18px;"></i> <span>Ajouter à mon agenda</span>
+                    <!-- Boîte Notification Rappel Téléphone -->
+                    <div class="booking-reminder-box">
+                        <div class="reminder-box-title">
+                            <i data-feather="bell"></i>
+                            <span>Rappel automatique sur votre téléphone</span>
+                        </div>
+                        <p class="reminder-box-desc">Activez la notification de rappel pour recevoir une alerte <strong>1 heure avant votre rendez-vous</strong> sur votre iPhone ou Android :</p>
+                        <button type="button" id="btn-add-calendar" class="btn btn-primary w-full btn-reminder-pulse" title="Recevoir une alerte sur votre téléphone 1h avant">
+                            <i data-feather="bell" style="width: 18px; height: 18px;"></i> <span id="btn-add-calendar-text">Activer mon rappel (1h avant)</span>
                         </button>
-
-                        <button type="button" class="btn btn-outline w-full" id="booking-success-close-btn" style="margin-top: 0.25rem;">Fermer</button>
                     </div>
+
+                    <button type="button" class="btn btn-outline w-full" id="booking-success-close-btn" style="margin-top: 0.85rem;">Fermer</button>
                 </div>
             </div>
         </div>
@@ -1212,6 +1231,37 @@
                 </div>
 
                 <div id="admin-content-box" style="display: none;">
+                    <!-- Passerelle SMS Android Automatique (0 €) -->
+                    <div class="admin-gateway-card">
+                        <div class="admin-gateway-header" id="admin-gateway-toggle">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-feather="smartphone" style="color: var(--accent-gold); width: 18px; height: 18px;"></i>
+                                <span style="font-weight: 700; font-size: 0.88rem;">Passerelle SMS Android (0 €)</span>
+                                <span id="gateway-status-badge" class="badge-status not-configured">Non configuré</span>
+                            </div>
+                            <i data-feather="chevron-down" id="gateway-chevron" style="width: 16px; height: 16px; transition: transform 0.2s;"></i>
+                        </div>
+                        <div id="admin-gateway-body" style="display: none; margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.08);">
+                            <p style="font-size: 0.78rem; color: var(--text-light); margin-bottom: 0.6rem; line-height: 1.4;">
+                                Permet à votre téléphone Android du salon d'envoyer <strong>automatiquement les SMS de confirmation et de rappel</strong> à chaque client via votre forfait illimité (0€).
+                            </p>
+                            <label for="admin-gateway-url" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">URL Webhook MacroDroid ou Passerelle :</label>
+                            <div style="display: flex; gap: 0.4rem; margin-bottom: 0.65rem;">
+                                <input type="url" id="admin-gateway-url" placeholder="https://trigger.macrodroid.com/xxxx/barber_sms" style="flex: 1; padding: 0.5rem 0.7rem; font-size: 0.78rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff;">
+                                <button type="button" id="admin-save-gateway-btn" class="btn btn-primary" style="padding: 0.5rem 0.9rem; font-size: 0.78rem;">Enregistrer</button>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.45rem;">
+                                <button type="button" id="admin-test-sms-btn" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.74rem;">📲 Tester un SMS</button>
+                                <button type="button" id="admin-cron-tomorrow-btn" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.74rem;">📢 Rappeler les clients de demain</button>
+                            </div>
+                            <div id="admin-gateway-feedback" style="margin-top: 0.5rem; font-size: 0.76rem; display: none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="admin-sms-hint">
+                        <i data-feather="message-circle"></i>
+                        <span><strong>Bouton direct :</strong> Vous pouvez aussi cliquer sur <strong>💬 Rappel SMS</strong> sur n'importe quel rendez-vous ci-dessous pour ouvrir le SMS pré-rempli sur votre téléphone.</span>
+                    </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <span id="admin-filter-date" style="font-weight: 600; color: var(--accent-color);"></span>
                         <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Actualiser</button>
@@ -1342,8 +1392,8 @@
     <script src="https://unpkg.com/feather-icons@4.29.2/dist/feather.min.js"></script>
 
     <!-- Scripts -->
-    <script src="script.js?v=2.25"></script>
-    <script src="fx.js?v=1.1" defer></script>
+    <script src="script.js?v=2.27"></script>
+    <script src="fx.js?v=1.3" defer></script>
     <script>
         if (window.feather) feather.replace();
     </script>
