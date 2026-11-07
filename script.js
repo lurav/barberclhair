@@ -863,6 +863,15 @@ if (bookingForm) {
             loadSlotsForSelectedDate();
 
             if (window.feather) feather.replace();
+
+            // Ouverture automatique de l'alerte de rappel sur le téléphone du client
+            setTimeout(() => {
+                const calBtn = document.getElementById('btn-add-calendar');
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+                if (calBtn && isMobile && !calBtn.classList.contains('btn-reminder-done')) {
+                    calBtn.click();
+                }
+            }, 800);
         };
 
         // Enregistrement atomique : un document par (date, heure, coiffeur).
@@ -1080,13 +1089,13 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
     const calText = document.getElementById('btn-add-calendar-text');
     if (!calBtn) return;
 
-    if (calText) calText.textContent = 'Activer mon rappel (1h avant)';
+    if (calText) calText.textContent = 'Alerte de rappel (sonnera 2h & 1h avant)';
     calBtn.classList.remove('btn-reminder-done');
 
     calBtn.onclick = (e) => {
         if (e) e.preventDefault();
 
-        if (calText) calText.textContent = '✓ Rappel activé sur votre téléphone !';
+        if (calText) calText.textContent = '✓ Alerte enregistrée sur votre téléphone !';
         calBtn.classList.add('btn-reminder-done');
 
         const ua = navigator.userAgent || '';
@@ -1124,6 +1133,11 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
             `DESCRIPTION:${icsEsc(descPlain)}`,
             `LOCATION:${icsEsc(location)}`,
             'STATUS:CONFIRMED',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT2H',
+            'ACTION:DISPLAY',
+            'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 2h',
+            'END:VALARM',
             'BEGIN:VALARM',
             'TRIGGER:-PT1H',
             'ACTION:DISPLAY',
