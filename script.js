@@ -716,11 +716,17 @@ function openBookingModal(time) {
         onViewportResize();
     }
 
+    try {
+        if (!history.state || history.state.modal !== 'booking') {
+            history.pushState({ modal: 'booking' }, '');
+        }
+    } catch {}
+
     if (window.feather) feather.replace();
 }
 
-function closeBookingModal() {
-    if (!bookingModal) return;
+function closeBookingModal(fromHistory = false) {
+    if (!bookingModal || !bookingModal.classList.contains('show')) return;
     bookingModal.classList.remove('show');
     bookingModal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
@@ -733,6 +739,10 @@ function closeBookingModal() {
     // Réinitialise la hauteur forcée
     const modalCard = bookingModal.querySelector('.booking-modal-card');
     if (modalCard) modalCard.style.maxHeight = '';
+
+    if (!fromHistory && history.state && history.state.modal === 'booking') {
+        history.back();
+    }
 }
 
 if (modalOverlay) modalOverlay.addEventListener('click', closeBookingModal);
@@ -1265,6 +1275,12 @@ function openAdminModal() {
     adminModal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
+    try {
+        if (!history.state || history.state.modal !== 'admin') {
+            history.pushState({ modal: 'admin' }, '');
+        }
+    } catch {}
+
     if (isAdminAuthenticated) {
         showAdminPlanning();
     } else {
@@ -1278,16 +1294,60 @@ function openAdminModal() {
     if (window.feather) feather.replace();
 }
 
-function closeAdminModal() {
-    if (!adminModal) return;
+function closeAdminModal(fromHistory = false) {
+    if (!adminModal || !adminModal.classList.contains('show')) return;
     adminModal.classList.remove('show');
     adminModal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+
+    if (!fromHistory && history.state && history.state.modal === 'admin') {
+        history.back();
+    }
 }
 
 if (openAdminBtn) openAdminBtn.addEventListener('click', openAdminModal);
-if (adminModalCloseBtn) adminModalCloseBtn.addEventListener('click', closeAdminModal);
-if (adminModalCloseOverlay) adminModalCloseOverlay.addEventListener('click', closeAdminModal);
+if (adminModalCloseBtn) adminModalCloseBtn.addEventListener('click', () => closeAdminModal());
+if (adminModalCloseOverlay) adminModalCloseOverlay.addEventListener('click', () => closeAdminModal());
+
+// Boutons Retour au site dans l'Espace Salon
+const adminTopBackBtn = document.getElementById('admin-top-back-btn');
+const adminBottomBackBtn = document.getElementById('admin-bottom-back-btn');
+const adminAuthBackBtn = document.getElementById('admin-auth-back-btn');
+
+if (adminTopBackBtn) adminTopBackBtn.addEventListener('click', () => closeAdminModal());
+if (adminBottomBackBtn) adminBottomBackBtn.addEventListener('click', () => closeAdminModal());
+if (adminAuthBackBtn) adminAuthBackBtn.addEventListener('click', () => closeAdminModal());
+
+// Navigation par jour dans le planning (◀ jour précédent / jour suivant ▶)
+function changeAdminDay(delta) {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + delta);
+    // Dimanche fermé (0) -> sauter au samedi ou mardi
+    if (d.getDay() === 0) d.setDate(d.getDate() + (delta >= 0 ? 2 : -1));
+    // Lundi fermé (1) -> sauter au mardi ou samedi
+    if (d.getDay() === 1) d.setDate(d.getDate() + (delta >= 0 ? 1 : -2));
+
+    selectedDate = d;
+    currentWeekOffset = weekOffsetOf(selectedDate);
+    renderCalendarDays();
+    loadSlotsForSelectedDate();
+    showAdminPlanning();
+}
+
+const adminPrevDayBtn = document.getElementById('admin-prev-day-btn');
+const adminNextDayBtn = document.getElementById('admin-next-day-btn');
+if (adminPrevDayBtn) adminPrevDayBtn.addEventListener('click', () => changeAdminDay(-1));
+if (adminNextDayBtn) adminNextDayBtn.addEventListener('click', () => changeAdminDay(1));
+
+// Écouteur global pour fermer les modales avec la touche "Retour" du smartphone
+window.addEventListener('popstate', () => {
+    if (adminModal && adminModal.classList.contains('show')) {
+        closeAdminModal(true);
+    }
+    if (bookingModal && bookingModal.classList.contains('show')) {
+        closeBookingModal(true);
+    }
+});
 
 if (adminPinSubmit && adminPinInput) {
     adminPinSubmit.addEventListener('click', () => {
@@ -1499,7 +1559,7 @@ async function showAdminPlanning() {
 
     const selectedIso = formatDateISO(selectedDate);
     if (adminFilterDate) {
-        adminFilterDate.textContent = `Date : ${formatDateFull(selectedDate)}`;
+        adminFilterDate.textContent = formatDateFull(selectedDate);
     }
 
     if (!adminBookingsList) return;

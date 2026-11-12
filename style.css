@@ -1803,6 +1803,92 @@ img {
    ========================================================================== */
 .admin-modal-card {
     max-width: 600px;
+    position: relative;
+}
+
+/* Barre supérieure Espace Salon avec bouton Retour */
+.admin-modal-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+    padding-right: 2.75rem; /* espace pour la croix */
+}
+
+.admin-top-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-color);
+    padding: 0.35rem 0.8rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.admin-top-back-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.admin-top-back-btn i {
+    width: 14px;
+    height: 14px;
+}
+
+/* Barre de navigation des dates dans le planning */
+.admin-date-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.45rem 0.65rem;
+    border-radius: var(--radius-sm);
+}
+
+.admin-date-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.admin-date-btn:hover {
+    background: var(--accent-gold);
+    color: #000;
+    border-color: var(--accent-gold);
+}
+
+.admin-date-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+.admin-filter-date {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--accent-gold);
+    text-align: center;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .admin-bookings-list {
@@ -2597,7 +2683,7 @@ img {
 
     /* HERO */
     .hero {
-        padding: 6.5rem 0 3.5rem;
+        padding: calc(8.25rem + env(safe-area-inset-top, 0px)) 0 3.5rem;
         min-height: auto;
     }
 
@@ -3427,11 +3513,11 @@ p, .service-desc, .testimonial-text { text-wrap: pretty; }
 
 /* Appli installée : le contenu du haut ne doit pas passer sous le menu + l'encoche */
 @media (display-mode: standalone) {
-    .hero { padding-top: calc(8rem + env(safe-area-inset-top, 0px)); }
+    .hero { padding-top: calc(9.5rem + env(safe-area-inset-top, 0px)); }
     section[id] { scroll-margin-top: calc(80px + env(safe-area-inset-top, 0px)); }
 }
 @media (display-mode: standalone) and (max-width: 768px) {
-    .hero { padding-top: calc(7rem + env(safe-area-inset-top, 0px)); }
+    .hero { padding-top: calc(8.75rem + env(safe-area-inset-top, 0px)); }
 }
 
 /* ============================================
@@ -3682,6 +3768,18 @@ html::before {
 /* Rythme des sections plus aéré */
 .section { padding: clamp(4rem, 3rem + 5vw, 7.5rem) 0; }
 .section-header { margin-bottom: clamp(2.2rem, 2rem + 2vw, 4rem); }
+
+/* Le hero garde son espace sous le menu + l'encoche (sinon la règle .section ci-dessus l'écrase) */
+.hero.section { padding: 8rem 0 5rem; }
+@media screen and (max-width: 768px) {
+    .hero.section { padding: calc(8.25rem + env(safe-area-inset-top, 0px)) 0 3.5rem; }
+}
+@media (display-mode: standalone) {
+    .hero.section { padding-top: calc(9.5rem + env(safe-area-inset-top, 0px)); }
+}
+@media (display-mode: standalone) and (max-width: 768px) {
+    .hero.section { padding-top: calc(8.75rem + env(safe-area-inset-top, 0px)); }
+}
 
 /* Menu : verre dépoli plus net, liens en douceur */
 .header.scroll {

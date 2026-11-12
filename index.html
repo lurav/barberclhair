@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <script>
-// Force cache clear v21 — à supprimer après le 5 nov 2026
+// Force cache clear v22
 (function(){
-  var KEY = 'cache-purge-v21';
+  var KEY = 'cache-purge-v22';
   if (!sessionStorage.getItem(KEY) && 'serviceWorker' in navigator && 'caches' in window) {
     sessionStorage.setItem(KEY, '1');
     caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); });
@@ -60,7 +60,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.35">
+    <link rel="stylesheet" href="style.css?v=2.37">
     <link rel="stylesheet" href="fx.css?v=1.4">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er au 31 octobre, coupé le 1er novembre à 00h00) -->
@@ -1219,8 +1219,14 @@
         <div id="admin-modal" class="booking-modal" aria-hidden="true">
             <div class="booking-modal-overlay" id="admin-modal-close-overlay"></div>
             <div class="booking-modal-card admin-modal-card">
-                <button class="booking-modal-close" id="admin-modal-close-btn" aria-label="Fermer">&times;</button>
-                <div class="modal-badge"><i data-feather="lock"></i> Espace Salon</div>
+                <button class="booking-modal-close" id="admin-modal-close-btn" aria-label="Fermer le planning">&times;</button>
+                <div class="admin-modal-top-bar">
+                    <button type="button" class="admin-top-back-btn" id="admin-top-back-btn" title="Retour au site">
+                        <i data-feather="arrow-left"></i>
+                        <span>Retour au site</span>
+                    </button>
+                    <div class="modal-badge"><i data-feather="lock"></i> Espace Salon</div>
+                </div>
                 <h3 class="modal-title">Planning des Rendez-vous</h3>
                 
                 <div id="admin-auth-box">
@@ -1230,6 +1236,10 @@
                         <button type="button" id="admin-pin-submit" class="btn btn-primary" style="padding: 0.75rem 1.25rem;">Ouvrir</button>
                     </div>
                     <div id="admin-pin-error" style="color: #ff6b6b; font-size: 0.85rem; display: none;">Code incorrect</div>
+                    <button type="button" class="btn btn-outline w-full" id="admin-auth-back-btn" style="margin-top: 1rem; justify-content: center; gap: 0.5rem;">
+                        <i data-feather="arrow-left" style="width: 16px; height: 16px;"></i>
+                        <span>Retour au site</span>
+                    </button>
                 </div>
 
                 <div id="admin-content-box" style="display: none;">
@@ -1264,9 +1274,16 @@
                         <i data-feather="message-circle"></i>
                         <span><strong>Bouton direct :</strong> Vous pouvez aussi cliquer sur <strong>💬 Rappel SMS</strong> sur n'importe quel rendez-vous ci-dessous pour ouvrir le SMS pré-rempli sur votre téléphone.</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <span id="admin-filter-date" style="font-weight: 600; color: var(--accent-color);"></span>
-                        <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Actualiser</button>
+                    <!-- Navigation des dates du planning -->
+                    <div class="admin-date-nav-bar">
+                        <button type="button" id="admin-prev-day-btn" class="admin-date-btn" title="Jour précédent">
+                            <i data-feather="chevron-left"></i>
+                        </button>
+                        <span id="admin-filter-date" class="admin-filter-date"></span>
+                        <button type="button" id="admin-next-day-btn" class="admin-date-btn" title="Jour suivant">
+                            <i data-feather="chevron-right"></i>
+                        </button>
+                        <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.74rem;">Actualiser</button>
                     </div>
                     <div class="admin-barber-filter" id="admin-barber-filter" role="tablist" aria-label="Filtrer par coiffeur">
                         <!-- Dynamic filter injected by script.js -->
@@ -1274,6 +1291,12 @@
                     <div id="admin-bookings-list" class="admin-bookings-list">
                         <!-- Bookings list -->
                     </div>
+
+                    <!-- Bouton Retour au site en bas du planning -->
+                    <button type="button" class="btn btn-outline w-full" id="admin-bottom-back-btn" style="margin-top: 1.25rem; padding: 0.8rem 1rem; font-size: 0.92rem; font-weight: 700; justify-content: center; gap: 0.5rem;">
+                        <i data-feather="arrow-left" style="width: 18px; height: 18px;"></i>
+                        <span>Retour au site</span>
+                    </button>
                 </div>
             </div>
         </div>

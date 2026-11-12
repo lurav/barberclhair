@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Réservations ──
+    match /bookings/{bookingId} {
+
+      // Lecture : tout le monde peut voir les créneaux occupés
+      allow read: if true;
+
+      // Création : uniquement les nouvelles réservations avec les champs obligatoires
+      allow create: if bookingId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
+                    && request.resource.data.keys().hasAll(['date','time','barber','service','clientName','clientPhone'])
+                    && request.resource.data.date is string
+                    && request.resource.data.time is string
+                    && request.resource.data.clientName is string
+                    && request.resource.data.clientPhone is string;
+
+      // Modification : interdite (on ne modifie pas une réservation)
+      allow update: if false;
+
+      // Suppression : autorisée (pour l'admin côté client)
+      allow delete: if true;
+    }
+
+    // ── Configuration passerelle SMS ──
+    match /bookings/_config_sms_gateway {
+      allow read, write: if true;
+    }
+
+    // ── Bloquer tout le reste ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
