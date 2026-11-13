@@ -60,7 +60,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.37">
+    <link rel="stylesheet" href="style.css?v=2.38">
     <link rel="stylesheet" href="fx.css?v=1.4">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er au 31 octobre, coupé le 1er novembre à 00h00) -->
@@ -845,6 +845,23 @@
                     <p style="text-align:center;color:var(--text-light);margin-top:1rem;">Le salon & nos produits d'exception</p>
                 </div>
 
+                <!-- Catégorie : Nos Réalisations -->
+                <div class="gallery-category reveal">
+                    <h3 class="gallery-category-title">💈 Nos Réalisations</h3>
+                </div>
+                <div class="gallery-grid">
+                    <div class="gallery-item reveal" style="position: relative;">
+                        <img src="images/coupe_avant.jpg" alt="Transformation coiffure homme - Avant coupe" width="1024" height="1024" loading="lazy" decoding="async">
+                        <span style="position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.25); color: #fff; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; z-index: 2; pointer-events: none; letter-spacing: 0.5px;">AVANT</span>
+                        <div class="gallery-overlay"><i data-feather="plus"></i></div>
+                    </div>
+                    <div class="gallery-item reveal" style="position: relative;">
+                        <img src="images/coupe_apres.jpg" alt="Coupe et dégradé à blanc de précision - Après coupe" width="1024" height="1024" loading="lazy" decoding="async">
+                        <span style="position: absolute; top: 12px; left: 12px; background: linear-gradient(135deg, var(--accent-gold-light), var(--accent-gold)); color: #000; font-size: 0.72rem; font-weight: 800; padding: 3px 9px; border-radius: 20px; z-index: 2; pointer-events: none; letter-spacing: 0.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.4);">APRÈS</span>
+                        <div class="gallery-overlay"><i data-feather="plus"></i></div>
+                    </div>
+                </div>
+
                 <!-- Catégorie : Le Salon -->
                 <div class="gallery-category reveal">
                     <h3 class="gallery-category-title">🪑 Le Salon</h3>
@@ -1156,6 +1173,13 @@
                                 <option value="Shampoing (5€)">Shampoing — 5€</option>
                                 <option value="Forfait Senior (10€)">Forfait Senior — 10€</option>
                             </select>
+                            <div class="form-addon-box" id="addon-shampoo-wrap" style="margin-top: 0.65rem; padding: 0.65rem 0.85rem; background: rgba(212, 175, 55, 0.08); border: 1px dashed rgba(212, 175, 55, 0.35); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <label for="booking-addon-shampoo" style="display: flex; align-items: center; gap: 0.55rem; margin: 0; cursor: pointer; font-size: 0.88rem; color: #fff;">
+                                    <input type="checkbox" id="booking-addon-shampoo" style="width: 18px; height: 18px; accent-color: var(--accent-gold); cursor: pointer;">
+                                    <span>Ajouter un <strong>Shampoing (+5€)</strong></span>
+                                </label>
+                                <span style="font-size: 0.82rem; color: var(--accent-gold); font-weight: 700;">+5.00 €</span>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -1208,6 +1232,9 @@
                         <button type="button" id="btn-add-calendar" class="btn btn-primary w-full btn-reminder-pulse" title="Recevoir une alerte sur votre téléphone">
                             <i data-feather="bell" style="width: 18px; height: 18px;"></i> <span id="btn-add-calendar-text">Alerte de rappel (sonnera 2h & 1h avant)</span>
                         </button>
+                        <a href="#" id="btn-success-whatsapp" target="_blank" rel="noopener" class="btn btn-outline w-full" style="margin-top: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; border-color: rgba(37, 211, 102, 0.4); color: #25D366; background: rgba(37, 211, 102, 0.08);">
+                            <i data-feather="message-circle" style="width: 18px; height: 18px;"></i> <span>M'envoyer la confirmation sur WhatsApp</span>
+                        </a>
                     </div>
 
                     <button type="button" class="btn btn-outline w-full" id="booking-success-close-btn" style="margin-top: 0.85rem;">Fermer</button>
@@ -1274,6 +1301,23 @@
                         <i data-feather="message-circle"></i>
                         <span><strong>Bouton direct :</strong> Vous pouvez aussi cliquer sur <strong>💬 Rappel SMS</strong> sur n'importe quel rendez-vous ci-dessous pour ouvrir le SMS pré-rempli sur votre téléphone.</span>
                     </div>
+
+                    <!-- Résumé / Statistiques de la journée -->
+                    <div class="admin-kpi-summary" id="admin-kpi-summary">
+                        <div class="kpi-item">
+                            <span class="kpi-label">Rendez-vous</span>
+                            <span class="kpi-val" id="kpi-count">0</span>
+                        </div>
+                        <div class="kpi-item">
+                            <span class="kpi-label">CA Estimé</span>
+                            <span class="kpi-val" id="kpi-revenue">0 €</span>
+                        </div>
+                        <div class="kpi-item">
+                            <span class="kpi-label">Par Coiffeur</span>
+                            <span class="kpi-val" id="kpi-barbers" style="font-size: 0.82rem;">-</span>
+                        </div>
+                    </div>
+
                     <!-- Navigation des dates du planning -->
                     <div class="admin-date-nav-bar">
                         <button type="button" id="admin-prev-day-btn" class="admin-date-btn" title="Jour précédent">
@@ -1284,6 +1328,16 @@
                             <i data-feather="chevron-right"></i>
                         </button>
                         <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.74rem;">Actualiser</button>
+                    </div>
+
+                    <!-- Actions rapides sur la journée -->
+                    <div class="admin-day-actions" style="display: flex; gap: 0.5rem; margin-bottom: 0.85rem; flex-wrap: wrap;">
+                        <button type="button" id="admin-print-btn" class="btn btn-outline" style="flex: 1; min-width: 140px; padding: 0.45rem 0.75rem; font-size: 0.78rem; justify-content: center; gap: 0.4rem;">
+                            <i data-feather="printer" style="width: 14px; height: 14px;"></i> <span>Imprimer planning</span>
+                        </button>
+                        <button type="button" id="admin-toggle-day-btn" class="btn btn-outline" style="flex: 1; min-width: 140px; padding: 0.45rem 0.75rem; font-size: 0.78rem; justify-content: center; gap: 0.4rem; border-color: rgba(255, 107, 107, 0.4); color: #ff8787;">
+                            <i data-feather="slash" style="width: 14px; height: 14px;"></i> <span id="admin-toggle-day-text">Fermer ce jour</span>
+                        </button>
                     </div>
                     <div class="admin-barber-filter" id="admin-barber-filter" role="tablist" aria-label="Filtrer par coiffeur">
                         <!-- Dynamic filter injected by script.js -->
@@ -1417,7 +1471,7 @@
     <script src="https://unpkg.com/feather-icons@4.29.2/dist/feather.min.js"></script>
 
     <!-- Scripts -->
-    <script src="script.js?v=2.28"></script>
+    <script src="script.js?v=2.29"></script>
     <script src="fx.js?v=1.3" defer></script>
     <script>
         if (window.feather) feather.replace();

@@ -28,6 +28,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // ── Fermetures exceptionnelles / Jours bloqués par le salon ──
+    match /closures/{closureId} {
+      allow read, write: if true;
+    }
+
     // ── Bloquer tout le reste ──
     match /{document=**} {
       allow read, write: if false;

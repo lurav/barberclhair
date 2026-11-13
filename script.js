@@ -206,6 +206,24 @@ try {
     console.error("Erreur Firebase:", err);
 }
 
+// ── Fermetures exceptionnelles / Jours bloqués par le salon ──
+const closedDays = new Set();
+async function loadClosures() {
+    if (!db) return;
+    try {
+        const snap = await db.collection('closures').get();
+        closedDays.clear();
+        snap.forEach(doc => { if (doc.id) closedDays.add(doc.id); });
+        renderCalendar();
+        loadSlotsForSelectedDate();
+    } catch (e) {
+        console.warn('Lecture closures :', e);
+    }
+}
+if (db) {
+    loadClosures();
+}
+
 // Salon Data & Opening Hours
 // Lun: Fermé | Mar-Jeu: 09h-19h | Ven: 09h-12h30 / 14h-19h | Sam: 09h-19h | Dim: 10h-14h
 const DAY_NAMES_SHORT = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
@@ -371,6 +389,8 @@ function isSlotPast(date, time) {
 }
 
 function hasBookableSlot(date) {
+    const iso = formatDateISO(date);
+    if (closedDays.has(iso)) return false;
     return getSlotsForDay(date.getDay()).some(t => !isSlotPast(date, t));
 }
 
@@ -608,6 +628,11 @@ function renderSlots(bookedMap = new Map()) {
 
     currentBookedMap = bookedMap;
     slotsContainer.innerHTML = '';
+    const selectedIso = formatDateISO(selectedDate);
+    if (closedDays.has(selectedIso)) {
+        slotsContainer.innerHTML = '<div class="slots-empty" style="color: #ff8787; font-weight: 600;">🚫 Le salon est exceptionnellement fermé ce jour-là.</div>';
+        return;
+    }
     const dayOfWeek = selectedDate.getDay();
     const availableSlots = getSlotsForDay(dayOfWeek);
 
@@ -740,9 +765,27 @@ function closeBookingModal(fromHistory = false) {
     const modalCard = bookingModal.querySelector('.booking-modal-card');
     if (modalCard) modalCard.style.maxHeight = '';
 
+    const addonShampoo = document.getElementById('booking-addon-shampoo');
+    if (addonShampoo) addonShampoo.checked = false;
+
     if (!fromHistory && history.state && history.state.modal === 'booking') {
         history.back();
     }
+}
+
+// Option Shampoing (+5€) dynamique
+const bookingServiceSelect = document.getElementById('booking-service');
+const addonShampooWrap = document.getElementById('addon-shampoo-wrap');
+const addonShampooInput = document.getElementById('booking-addon-shampoo');
+if (bookingServiceSelect && addonShampooWrap) {
+    bookingServiceSelect.addEventListener('change', () => {
+        if (bookingServiceSelect.value.startsWith('Shampoing')) {
+            addonShampooWrap.style.display = 'none';
+            if (addonShampooInput) addonShampooInput.checked = false;
+        } else {
+            addonShampooWrap.style.display = 'flex';
+        }
+    });
 }
 
 if (modalOverlay) modalOverlay.addEventListener('click', closeBookingModal);
@@ -755,7 +798,18 @@ if (bookingForm) {
         e.preventDefault();
         if (!currentSlotForBooking) return;
 
-        const serviceVal = document.getElementById('booking-service').value;
+        let serviceVal = document.getElementById('booking-service').value;
+        const addonShampoo = document.getElementById('booking-addon-shampoo');
+        if (addonShampoo && addonShampoo.checked && !serviceVal.includes('Shampoing')) {
+            const priceMatch = serviceVal.match(/\((\d+)€\)/);
+            if (priceMatch) {
+                const newPrice = parseInt(priceMatch[1], 10) + 5;
+                const baseName = serviceVal.split('(')[0].trim();
+                serviceVal = `${baseName} + Shampoing (${newPrice}€)`;
+            } else {
+                serviceVal += ' + Shampoing (+5€)';
+            }
+        }
         const nameVal = document.getElementById('booking-name').value.trim();
         const phoneVal = document.getElementById('booking-phone').value.trim();
         const noteVal = document.getElementById('booking-note').value.trim();
@@ -866,6 +920,14 @@ if (bookingForm) {
             document.getElementById('success-service').textContent = serviceVal;
             document.getElementById('success-client').textContent = `${nameVal} (${phoneVal})`;
             setupCalendarButtons(currentSlotForBooking.dateIso, currentSlotForBooking.time, serviceVal, nameVal, assignedBarber.name);
+
+            // WhatsApp confirmation pour le client
+            const waSuccessBtn = document.getElementById('btn-success-whatsapp');
+            if (waSuccessBtn) {
+                const waDateStr = currentSlotForBooking.dateFull || formatDateFull(selectedDate);
+                const waMsg = `Bonjour Barber C L'Hair, je confirme ma réservation pour le ${waDateStr} à ${currentSlotForBooking.time} (${serviceVal}) avec ${assignedBarber.name}. Nom : ${nameVal}.`;
+                waSuccessBtn.href = `https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}`;
+            }
 
             if (bookingFormStep) bookingFormStep.style.display = 'none';
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
@@ -1266,8 +1328,18 @@ const adminBookingsList = document.getElementById('admin-bookings-list');
 const adminFilterDate = document.getElementById('admin-filter-date');
 const adminRefreshBtn = document.getElementById('admin-refresh-btn');
 
-const ADMIN_PIN = "176521";
-let isAdminAuthenticated = false;
+const ADMIN_PIN_HASH = "f4241a2c76063bdcc88089d24082d69624b8bac1522fb3aab504baa313616fa3";
+let isAdminAuthenticated = sessionStorage.getItem('barber_admin_auth') === '1' || localStorage.getItem('barber_admin_auth') === '1';
+
+async function sha256Hex(str) {
+    try {
+        const buf = new TextEncoder().encode(str);
+        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+        return '';
+    }
+}
 
 function openAdminModal() {
     if (!adminModal) return;
@@ -1350,11 +1422,14 @@ window.addEventListener('popstate', () => {
 });
 
 if (adminPinSubmit && adminPinInput) {
-    adminPinSubmit.addEventListener('click', () => {
+    adminPinSubmit.addEventListener('click', async () => {
         // Enlève le focus du champ pour forcer iOS à refermer le clavier et remettre le zoom à 1
         adminPinInput.blur();
-        if (adminPinInput.value.trim() === ADMIN_PIN) {
+        const val = adminPinInput.value.trim();
+        const hash = await sha256Hex(val);
+        if (hash === ADMIN_PIN_HASH || val === '176521') {
             isAdminAuthenticated = true;
+            localStorage.setItem('barber_admin_auth', '1');
             if (adminPinError) adminPinError.style.display = 'none';
             showAdminPlanning();
         } else {
@@ -1581,6 +1656,72 @@ async function showAdminPlanning() {
             allBookings.forEach(b => { counts[b.barberId] = (counts[b.barberId] || 0) + 1; });
             renderAdminBarberFilter(counts);
 
+            // Calcul KPIs du jour
+            const kpiCount = document.getElementById('kpi-count');
+            const kpiRevenue = document.getElementById('kpi-revenue');
+            const kpiBarbers = document.getElementById('kpi-barbers');
+            if (kpiCount) kpiCount.textContent = allBookings.length;
+            if (kpiRevenue) {
+                const totalRev = allBookings.reduce((sum, b) => {
+                    const m = (b.service || '').match(/(\d+)\s*€/);
+                    return sum + (m ? parseInt(m[1], 10) : 14);
+                }, 0);
+                kpiRevenue.textContent = `${totalRev} €`;
+            }
+            if (kpiBarbers) {
+                const parts = [];
+                BARBERS.forEach(b => {
+                    const c = counts[b.id] || 0;
+                    parts.push(`${b.name} : ${c}`);
+                });
+                kpiBarbers.textContent = parts.join(' • ') || '-';
+            }
+
+            // Actions de journée : Imprimer & Bloquer/Débloquer
+            const printBtn = document.getElementById('admin-print-btn');
+            if (printBtn) {
+                printBtn.onclick = () => window.print();
+            }
+
+            const toggleDayBtn = document.getElementById('admin-toggle-day-btn');
+            const toggleDayText = document.getElementById('admin-toggle-day-text');
+            const isDayClosed = closedDays.has(selectedIso);
+            if (toggleDayBtn && toggleDayText) {
+                if (isDayClosed) {
+                    toggleDayBtn.classList.add('day-closed');
+                    toggleDayText.textContent = '✅ Réouvrir ce jour';
+                    toggleDayBtn.style.color = '#4ade80';
+                    toggleDayBtn.style.borderColor = 'rgba(74, 222, 128, 0.4)';
+                } else {
+                    toggleDayBtn.classList.remove('day-closed');
+                    toggleDayText.textContent = '🚫 Fermer ce jour';
+                    toggleDayBtn.style.color = '#ff8787';
+                    toggleDayBtn.style.borderColor = 'rgba(255, 107, 107, 0.4)';
+                }
+
+                toggleDayBtn.onclick = async () => {
+                    if (isDayClosed) {
+                        if (confirm(`Réouvrir les réservations pour le ${formatDateFull(selectedDate)} ?`)) {
+                            closedDays.delete(selectedIso);
+                            if (db) {
+                                try { await db.collection('closures').doc(selectedIso).delete(); } catch(e){}
+                            }
+                            showAdminPlanning();
+                            loadSlotsForSelectedDate();
+                        }
+                    } else {
+                        if (confirm(`Bloquer le salon le ${formatDateFull(selectedDate)} ? Aucun client ne pourra réserver sur cette date.`)) {
+                            closedDays.add(selectedIso);
+                            if (db) {
+                                try { await db.collection('closures').doc(selectedIso).set({ closedAt: new Date().toISOString() }); } catch(e){}
+                            }
+                            showAdminPlanning();
+                            loadSlotsForSelectedDate();
+                        }
+                    }
+                };
+            }
+
             const bookings = adminBarberFilter === 'all'
                 ? allBookings
                 : allBookings.filter(b => b.barberId === adminBarberFilter);
@@ -1604,9 +1745,11 @@ async function showAdminPlanning() {
                 const reminderKey = `barber_reminder_sent_${b.id}`;
                 const alreadySent = !!localStorage.getItem(reminderKey);
                 const reminderMsg = buildReminderMessage(b, selectedIso);
+                const gReviewMsg = `Bonjour ${(b.clientName || 'Client').trim()}, merci pour votre visite chez Barber C L'Hair ! Si votre coupe vous plaît, un petit avis 5 étoiles sur Google nous aide énormément : https://maps.google.com/?q=Barber+c+l%27hair+33+rue+de+l%27hotel+de+ville+59620+Aulnoye-Aymeries . À bientôt !`;
                 const hasPhone = !!(b.clientPhone && String(b.clientPhone).replace(/\D/g, '').length >= 9);
                 const smsUrl = hasPhone ? getSmsUrl(b.clientPhone, reminderMsg) : '#';
                 const waUrl = hasPhone ? getWhatsAppUrl(b.clientPhone, reminderMsg) : '#';
+                const gReviewSmsUrl = hasPhone ? getSmsUrl(b.clientPhone, gReviewMsg) : '#';
 
                 item.innerHTML = `
                     <div class="admin-booking-header">
@@ -1629,6 +1772,9 @@ async function showAdminPlanning() {
                             </a>
                             <a href="${escapeHtml(waUrl)}" target="_blank" rel="noopener" class="admin-wa-btn" title="Envoyer par WhatsApp">
                                 <span>WhatsApp</span>
+                            </a>
+                            <a href="${escapeHtml(gReviewSmsUrl)}" class="admin-sms-btn" style="border-color: rgba(251, 191, 36, 0.45); color: #fbbf24;" title="Envoyer une demande d'avis 5 étoiles Google par SMS">
+                                <span>⭐ Avis Google</span>
                             </a>
                         ` : ''}
                         <button type="button" class="admin-cancel-btn" title="Supprimer ce rendez-vous">Supprimer</button>

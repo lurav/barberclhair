@@ -3960,3 +3960,137 @@ html { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.5) #0a0a0a; }
     }
     .header.scroll .nav { padding-left: 1.6rem; padding-right: 1.6rem; }
 }
+
+/* ============================================================
+   📊 ESPACE SALON : KPI & ACTIONS
+   ============================================================ */
+.admin-kpi-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding: 0.65rem 0.5rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+.kpi-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+}
+.kpi-label {
+    font-size: 0.68rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.kpi-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+}
+
+.admin-day-actions button {
+    transition: var(--transition-fast);
+}
+.admin-day-actions button:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.08);
+}
+#admin-toggle-day-btn.day-closed {
+    background: rgba(255, 107, 107, 0.15) !important;
+    border-color: #ff6b6b !important;
+    color: #ff8787 !important;
+}
+
+/* ============================================================
+   🖨️ IMPRESSION PROPRE DU PLANNING DU SALON
+   ============================================================ */
+@media print {
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        margin: 0 !important;
+        padding: 10px !important;
+    }
+    .header,
+    .hero,
+    .services,
+    .about,
+    .gallery,
+    .contact,
+    .footer,
+    .mobile-bottom-dock,
+    .booking-modal-overlay,
+    .booking-modal-close,
+    .admin-modal-top-bar,
+    .admin-gateway-card,
+    .admin-sms-hint,
+    .admin-date-btn,
+    .admin-day-actions,
+    .admin-barber-filter,
+    .admin-booking-actions,
+    #admin-bottom-back-btn,
+    #admin-refresh-btn,
+    .pwa-install,
+    .offline-bar {
+        display: none !important;
+    }
+    #admin-modal,
+    #admin-modal.show,
+    #admin-content-box {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        background: transparent !important;
+    }
+    .admin-modal-card {
+        background: #fff !important;
+        color: #000 !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+    .modal-title, .admin-filter-date {
+        color: #000 !important;
+        font-size: 18pt !important;
+        text-align: left !important;
+        margin-bottom: 8pt !important;
+    }
+    .admin-kpi-summary {
+        background: #f4f4f4 !important;
+        border: 1px solid #ccc !important;
+        color: #000 !important;
+        margin-bottom: 15pt !important;
+    }
+    .kpi-label { color: #555 !important; }
+    .kpi-val { color: #000 !important; font-weight: bold !important; }
+    .admin-booking-item {
+        background: #fff !important;
+        border: 1px solid #999 !important;
+        color: #000 !important;
+        page-break-inside: avoid;
+        margin-bottom: 8pt !important;
+        padding: 8pt 10pt !important;
+    }
+    .admin-booking-time, .admin-booking-client {
+        color: #000 !important;
+        font-weight: bold !important;
+    }
+    .admin-booking-barber-badge, .admin-booking-service-badge {
+        border: 1px solid #777 !important;
+        color: #000 !important;
+        background: #eee !important;
+    }
+    .admin-booking-meta, .admin-booking-meta a {
+        color: #222 !important;
+    }
+}
+
