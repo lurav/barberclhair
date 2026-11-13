@@ -1939,17 +1939,21 @@ img {
 }
 
 .admin-cancel-btn {
-    background: rgba(255, 107, 107, 0.08);
-    border: 1px solid rgba(255, 107, 107, 0.25);
-    color: #ff6b6b;
-    padding: 0.4rem 0.75rem;
+    background: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.4);
+    color: #ff8787;
+    padding: 0.35rem 0.7rem;
     border-radius: var(--radius-sm);
-    font-size: 0.75rem;
+    font-size: 0.76rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: var(--transition-fast);
 }
 
-.admin-cancel-btn:hover {
+.admin-cancel-btn:hover, .admin-cancel-btn:active {
     background: #ff6b6b;
     color: #fff;
     border-color: #ff6b6b;
@@ -3054,9 +3058,10 @@ img {
         padding: 0.55rem 0.75rem;
     }
 
+    .admin-booking-header .admin-cancel-btn,
     .admin-booking-actions .admin-cancel-btn {
         flex: 0 0 auto;
-        padding: 0.55rem 0.75rem;
+        padding: 0.35rem 0.65rem;
     }
 
     /* CONTACT SECTION MOBILE */

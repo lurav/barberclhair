@@ -1813,9 +1813,15 @@ async function showAdminPlanning() {
 
                 item.innerHTML = `
                     <div class="admin-booking-header">
-                        <span class="admin-booking-time">${escapeHtml(b.time || '')}</span>
-                        <span class="admin-booking-barber-badge barber-color-${barberIndex}">👤 ${escapeHtml(barberName)}</span>
-                        <span class="admin-booking-service-badge">✂️ ${escapeHtml(b.service || 'Coupe')}</span>
+                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                            <span class="admin-booking-time">${escapeHtml(b.time || '')}</span>
+                            <span class="admin-booking-barber-badge barber-color-${barberIndex}">👤 ${escapeHtml(barberName)}</span>
+                            <span class="admin-booking-service-badge">✂️ ${escapeHtml(b.service || 'Coupe')}</span>
+                        </div>
+                        <button type="button" class="admin-cancel-btn" title="Annuler et supprimer ce rendez-vous" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.76rem; border: 1px solid rgba(255, 107, 107, 0.4); color: #ff8787; background: rgba(255, 107, 107, 0.12); border-radius: 6px; cursor: pointer; flex-shrink: 0; margin-left: auto;">
+                            <i data-feather="trash-2" style="width: 13px; height: 13px;"></i>
+                            <span>Supprimer</span>
+                        </button>
                     </div>
                     <div class="admin-booking-details">
                         <div class="admin-booking-client">${escapeHtml(b.clientName || 'Client')}</div>
@@ -1825,8 +1831,8 @@ async function showAdminPlanning() {
                             ${b.clientNote ? `<div style="margin-top: 0.3rem;"><em>Note: ${escapeHtml(b.clientNote)}</em></div>` : ''}
                         </div>
                     </div>
-                    <div class="admin-booking-actions">
-                        ${hasPhone ? `
+                    ${hasPhone ? `
+                        <div class="admin-booking-actions">
                             <a href="${escapeHtml(smsUrl)}" class="admin-sms-btn ${alreadySent ? 'sent' : ''}" title="Ouvrir le SMS de rappel pré-rempli sur votre téléphone">
                                 <span class="sms-label">${alreadySent ? '✓ SMS préparé' : '💬 Rappel SMS'}</span>
                             </a>
@@ -1836,9 +1842,8 @@ async function showAdminPlanning() {
                             <a href="${escapeHtml(gReviewSmsUrl)}" class="admin-sms-btn" style="border-color: rgba(251, 191, 36, 0.45); color: #fbbf24;" title="Envoyer une demande d'avis 5 étoiles Google par SMS">
                                 <span>⭐ Avis Google</span>
                             </a>
-                        ` : ''}
-                        <button type="button" class="admin-cancel-btn" title="Supprimer ce rendez-vous">Supprimer</button>
-                    </div>
+                        </div>
+                    ` : ''}
                 `;
 
                 if (hasPhone) {
