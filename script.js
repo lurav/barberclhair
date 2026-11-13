@@ -1744,6 +1744,93 @@ async function showAdminPlanning() {
                 printBtn.onclick = () => window.print();
             }
 
+            // Bouton Rappel Groupé SMS iPhone
+            const remindBtn = document.getElementById('admin-remind-tomorrow-btn');
+            const remindBtnText = document.getElementById('admin-remind-tomorrow-text');
+            if (remindBtn) {
+                const pendingReminders = allBookings.filter(b => {
+                    const hasPhone = !!(b.clientPhone && String(b.clientPhone).replace(/\D/g, '').length >= 9);
+                    const alreadySent = !!localStorage.getItem(`barber_reminder_sent_${b.id}`);
+                    return hasPhone && !alreadySent;
+                });
+
+                if (remindBtnText) {
+                    if (pendingReminders.length > 0) {
+                        remindBtnText.textContent = `📢 Rappeler les clients (${pendingReminders.length} SMS iPhone)`;
+                        remindBtn.style.opacity = '1';
+                    } else {
+                        remindBtnText.textContent = `✓ Tous les rappels envoyés pour ce jour`;
+                        remindBtn.style.opacity = '0.75';
+                    }
+                }
+
+                remindBtn.onclick = () => {
+                    if (pendingReminders.length === 0) {
+                        alert(`Tous les clients avec téléphone pour le ${formatDateFull(selectedDate)} ont déjà été rappelés.`);
+                        return;
+                    }
+
+                    const names = pendingReminders.map(b => `• ${b.time} - ${b.clientName} (${b.clientPhone})`).join('\n');
+                    const confirmMsg = `Envoyer le rappel SMS automatique à ${pendingReminders.length} client(s) pour le ${formatDateFull(selectedDate)} via votre iPhone ?\n\n${names}`;
+                    
+                    if (!confirm(confirmMsg)) return;
+
+                    // Construction du payload pour le Raccourci Apple
+                    // Format : TEL;;MESSAGE---TEL;;MESSAGE
+                    const entries = pendingReminders.map(b => {
+                        const cleanPhone = String(b.clientPhone).replace(/\D/g, '');
+                        const msg = buildReminderMessage(b, selectedIso);
+                        return `${cleanPhone};;${msg}`;
+                    });
+                    const payload = entries.join('---');
+
+                    // Marquer comme envoyé
+                    pendingReminders.forEach(b => {
+                        const reminderKey = `barber_reminder_sent_${b.id}`;
+                        localStorage.setItem(reminderKey, new Date().toISOString());
+                        if (db) {
+                            db.collection('bookings').doc(b.id).set({
+                                reminderSent: true,
+                                reminderSentAt: new Date().toISOString()
+                            }, { merge: true }).catch(() => {});
+                        }
+                    });
+
+                    // Rafraîchir l'affichage du planning
+                    showAdminPlanning();
+
+                    // Déclenchement du Raccourci Apple sur iOS
+                    const shortcutUrl = `shortcuts://run-shortcut?name=RappelsBarber&input=text&text=${encodeURIComponent(payload)}`;
+                    window.location.href = shortcutUrl;
+                };
+            }
+
+            // Bouton et Modal Aide Raccourci iPhone
+            const shortcutHelpBtn = document.getElementById('admin-shortcut-help-btn');
+            const shortcutModal = document.getElementById('admin-shortcut-modal');
+            const shortcutCloseBtn = document.getElementById('admin-shortcut-close-btn');
+            const shortcutOverlay = document.getElementById('admin-shortcut-modal-overlay');
+            const shortcutOkBtn = document.getElementById('admin-shortcut-modal-ok-btn');
+
+            const closeShortcutModal = () => {
+                if (shortcutModal) {
+                    shortcutModal.classList.remove('show');
+                    shortcutModal.setAttribute('aria-hidden', 'true');
+                }
+            };
+            const openShortcutModal = () => {
+                if (shortcutModal) {
+                    shortcutModal.classList.add('show');
+                    shortcutModal.setAttribute('aria-hidden', 'false');
+                    if (window.feather) feather.replace();
+                }
+            };
+
+            if (shortcutHelpBtn) shortcutHelpBtn.onclick = openShortcutModal;
+            if (shortcutCloseBtn) shortcutCloseBtn.onclick = closeShortcutModal;
+            if (shortcutOverlay) shortcutOverlay.onclick = closeShortcutModal;
+            if (shortcutOkBtn) shortcutOkBtn.onclick = closeShortcutModal;
+
             const toggleDayBtn = document.getElementById('admin-toggle-day-btn');
             const toggleDayText = document.getElementById('admin-toggle-day-text');
             const isDayClosed = closedDays.has(selectedIso);

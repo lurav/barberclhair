@@ -60,7 +60,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.41">
+    <link rel="stylesheet" href="style.css?v=2.42">
     <link rel="stylesheet" href="fx.css?v=1.4">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er au 31 octobre, coupé le 1er novembre à 00h00) -->
@@ -1294,6 +1294,18 @@
                         <button id="admin-refresh-btn" class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.74rem;">Actualiser</button>
                     </div>
 
+                    <!-- Barre de rappel SMS groupé iPhone -->
+                    <div class="admin-reminder-batch-bar" style="margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" id="admin-remind-tomorrow-btn" class="btn btn-primary" style="flex: 1; min-width: 220px; padding: 0.6rem 0.9rem; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; background: linear-gradient(135deg, rgba(37, 211, 102, 0.25), rgba(18, 140, 126, 0.35)); border: 1px solid rgba(37, 211, 102, 0.6); color: #4ade80;">
+                            <i data-feather="send" style="width: 15px; height: 15px;"></i>
+                            <span id="admin-remind-tomorrow-text">📢 Rappeler les clients (SMS iPhone)</span>
+                        </button>
+                        <button type="button" id="admin-shortcut-help-btn" class="btn btn-outline" style="padding: 0.6rem 0.8rem; font-size: 0.78rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; border-color: rgba(212, 175, 55, 0.4); color: var(--accent-gold);" title="Comment configurer le Raccourci Apple sur votre iPhone">
+                            <i data-feather="help-circle" style="width: 14px; height: 14px;"></i>
+                            <span>Aide iPhone</span>
+                        </button>
+                    </div>
+
                     <!-- Actions rapides sur la journée -->
                     <div class="admin-day-actions" style="margin-bottom: 0.85rem;">
                         <button type="button" id="admin-toggle-day-btn" class="btn btn-outline w-full" style="padding: 0.45rem 0.75rem; font-size: 0.78rem; justify-content: center; gap: 0.4rem; border-color: rgba(255, 107, 107, 0.4); color: #ff8787;">
@@ -1311,6 +1323,53 @@
                     <button type="button" class="btn btn-outline w-full" id="admin-bottom-back-btn" style="margin-top: 1.25rem; padding: 0.8rem 1rem; font-size: 0.92rem; font-weight: 700; justify-content: center; gap: 0.5rem;">
                         <i data-feather="arrow-left" style="width: 18px; height: 18px;"></i>
                         <span>Retour au site</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Aide Raccourci iPhone -->
+        <div id="admin-shortcut-modal" class="booking-modal" aria-hidden="true">
+            <div class="booking-modal-overlay" id="admin-shortcut-modal-overlay"></div>
+            <div class="booking-modal-card" style="max-width: 520px;">
+                <button class="booking-modal-close" id="admin-shortcut-close-btn" aria-label="Fermer">&times;</button>
+                <div class="modal-badge"><i data-feather="smartphone"></i> Apple iPhone</div>
+                <h3 class="modal-title" style="font-size: 1.3rem;">Rappels SMS Gratuits sur iPhone</h3>
+                <p style="font-size: 0.84rem; color: var(--text-light); line-height: 1.5; margin-bottom: 1.25rem;">
+                    Grâce à l'application officielle <strong>Raccourcis</strong> d'Apple, votre iPhone envoie automatiquement tous les SMS de rappel de la journée avec votre forfait mobile (0 €).
+                </p>
+
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.25); border-radius: 12px; padding: 1.1rem; margin-bottom: 1.25rem; font-size: 0.84rem; color: #fff; line-height: 1.6;">
+                    <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <i data-feather="check-circle" style="width: 16px; height: 16px;"></i> Configuration en 1 minute :
+                    </div>
+                    <ol style="margin-left: 1.25rem; padding-left: 0; display: flex; flex-direction: column; gap: 0.65rem;">
+                        <li>Ouvrez l'application <strong>Raccourcis</strong> sur votre iPhone.</li>
+                        <li>Touchez le <strong>+</strong> en haut à droite pour créer un nouveau raccourci.</li>
+                        <li>Renommez-le exactement : <strong style="color: var(--accent-gold); background: rgba(212,175,55,0.15); padding: 0.1rem 0.4rem; border-radius: 4px;">RappelsBarber</strong></li>
+                        <li>Ajoutez ces 3 actions simples :
+                            <ul style="margin-top: 0.35rem; margin-left: 1rem; color: #d1d5db; font-size: 0.8rem; list-style-type: disc;">
+                                <li><strong>Scinder le texte</strong> : choisissez <em>Entrée de raccourci</em>, séparateur personnalisé : <code>---</code></li>
+                                <li><strong>Répéter avec chaque</strong> élément :
+                                    <div style="margin-left: 0.75rem; margin-top: 0.2rem;">
+                                        • <strong>Scinder le texte</strong> [Élément de la répétition] par <code>;;</code><br>
+                                        • <strong>Envoyer le message</strong> [Index 2] à [Index 1]<br>
+                                        • <em>(Optionnel) Décochez "Afficher lors de l'exécution" pour envoyer en arrière-plan sans ouvrir l'app.</em>
+                                    </div>
+                                </li>
+                                <li><strong>Afficher la notification</strong> : "✓ Rappels envoyés !"</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <a href="shortcuts://run-shortcut?name=RappelsBarber&input=text&text=test" class="btn btn-outline" style="flex: 1; padding: 0.65rem 0.9rem; font-size: 0.8rem; justify-content: center; gap: 0.4rem; border-color: rgba(37, 211, 102, 0.4); color: #34d399;">
+                        <i data-feather="play" style="width: 14px; height: 14px;"></i>
+                        <span>Tester le Raccourci</span>
+                    </a>
+                    <button type="button" id="admin-shortcut-modal-ok-btn" class="btn btn-primary" style="flex: 1; padding: 0.65rem 0.9rem; font-size: 0.8rem;">
+                        <span>J'ai compris</span>
                     </button>
                 </div>
             </div>
@@ -1433,7 +1492,7 @@
     <script src="https://unpkg.com/feather-icons@4.29.2/dist/feather.min.js"></script>
 
     <!-- Scripts -->
-    <script src="script.js?v=2.34"></script>
+    <script src="script.js?v=2.35"></script>
     <script src="fx.js?v=1.3" defer></script>
     <script>
         if (window.feather) feather.replace();
