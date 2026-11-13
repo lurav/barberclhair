@@ -2,35 +2,44 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Réservations ──
-    match /bookings/{bookingId} {
-
-      // Lecture : tout le monde peut voir les créneaux occupés
+    // ── 1. Créneaux occupés publics (ANONYMES) ──
+    // Contient UNIQUEMENT : date, heure, coiffeur.
+    // Aucun nom, prénom ni numéro de téléphone de client.
+    match /slots/{slotId} {
       allow read: if true;
+      allow create: if slotId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
+                    && request.resource.data.keys().hasOnly(['date','time','barber'])
+                    && request.resource.data.date is string
+                    && request.resource.data.time is string
+                    && request.resource.data.barber is string;
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
 
-      // Création : uniquement les nouvelles réservations avec les champs obligatoires
+    // ── 2. Réservations privées complètes (DONNÉES SALON) ──
+    // Contient : clientName, clientPhone, clientNote, service, etc.
+    // LECTURE & SUPPRESSION RÉSERVÉES AU SALON CONNECTÉ
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null;
       allow create: if bookingId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
                     && request.resource.data.keys().hasAll(['date','time','barber','service','clientName','clientPhone'])
                     && request.resource.data.date is string
                     && request.resource.data.time is string
                     && request.resource.data.clientName is string
                     && request.resource.data.clientPhone is string;
-
-      // Modification : interdite (on ne modifie pas une réservation)
       allow update: if false;
-
-      // Suppression : autorisée (pour l'admin côté client)
-      allow delete: if true;
+      allow delete: if request.auth != null;
     }
 
-    // ── Configuration passerelle SMS ──
+    // ── 3. Configuration passerelle SMS ──
     match /bookings/_config_sms_gateway {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
 
-    // ── Fermetures exceptionnelles / Jours bloqués par le salon ──
+    // ── 4. Fermetures exceptionnelles du salon ──
     match /closures/{closureId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
 
     // ── Bloquer tout le reste ──

@@ -572,7 +572,7 @@ function startBookingsListener() {
     const end = new Date(getWeekStartDate(MAX_WEEK_OFFSET));
     end.setDate(end.getDate() + 6);
 
-    unsubscribeBookings = db.collection('bookings')
+    unsubscribeBookings = db.collection('slots')
         .where('date', '>=', formatDateISO(start))
         .where('date', '<=', formatDateISO(end))
         .onSnapshot((snapshot) => {
@@ -586,7 +586,7 @@ function startBookingsListener() {
             bookingsCacheReady = true;
             renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
         }, (error) => {
-            console.warn("Écouteur Firestore non actif (vérifier les règles Firestore) :", error);
+            console.warn("Écouteur slots :", error);
             unsubscribeBookings = null;
             renderSlots(getLocalBookings(formatDateISO(selectedDate)));
         });
@@ -949,10 +949,14 @@ if (bookingForm) {
         // Enregistrement atomique : un document par (date, heure, coiffeur).
         // Si deux clients valident en même temps, un seul réussit.
         const SLOT_TAKEN = 'SLOT_TAKEN';
-        const tryBook = (barber) => {
+        const tryBook = async (barber) => {
             const docId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${barber.id}`;
-            const ref = db.collection('bookings').doc(docId);
-            const payload = {
+            const slotPayload = {
+                date: currentSlotForBooking.dateIso,
+                time: currentSlotForBooking.time,
+                barber: barber.id
+            };
+            const bookingPayload = {
                 date: currentSlotForBooking.dateIso,
                 time: currentSlotForBooking.time,
                 barber: barber.id,
@@ -962,12 +966,17 @@ if (bookingForm) {
                 clientPhone: phoneVal,
                 clientPhoneNorm: phoneNorm,
                 clientNote: noteVal || '',
-                createdAt: new Date()
+                createdAt: new Date().toISOString()
             };
-            void ref;
-            return fsCreateDoc(docId, payload, 10000).then(ok => {
-                if (!ok) throw new Error(SLOT_TAKEN);
-            });
+
+            const slotOk = await fsCreateDocIn('slots', docId, slotPayload, 10000);
+            if (!slotOk) throw new Error(SLOT_TAKEN);
+
+            try {
+                await fsCreateDocIn('bookings', docId, bookingPayload, 10000);
+            } catch (bErr) {
+                console.warn("Échec création booking privé :", bErr);
+            }
         };
 
         try {
@@ -1048,7 +1057,7 @@ async function fsQueryEqual(field, value, timeoutMs) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ structuredQuery: {
-            from: [{ collectionId: 'bookings' }],
+            from: [{ collectionId: 'slots' }],
             where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: value } } }
         } })
     }, timeoutMs);
@@ -1057,11 +1066,11 @@ async function fsQueryEqual(field, value, timeoutMs) {
     return rows.filter(r => r.document).map(r => fsFromFields(r.document.fields));
 }
 
-// Crée le document ; renvoie false si le créneau existe déjà (409)
-async function fsCreateDoc(docId, data, timeoutMs) {
+// Crée un document dans la collection spécifiée (ex: 'slots' ou 'bookings')
+async function fsCreateDocIn(collection, docId, data, timeoutMs) {
     const fields = {};
     Object.keys(data).forEach(k => { fields[k] = fsToValue(data[k]); });
-    const res = await fsFetch(`${FS_BASE}/bookings?documentId=${encodeURIComponent(docId)}&key=${firebaseConfig.apiKey}`, {
+    const res = await fsFetch(`${FS_BASE}/${collection}?documentId=${encodeURIComponent(docId)}&key=${firebaseConfig.apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields })
@@ -1069,6 +1078,11 @@ async function fsCreateDoc(docId, data, timeoutMs) {
     if (res.status === 409) return false;
     if (!res.ok) throw new Error('Firestore create ' + res.status);
     return true;
+}
+
+// Crée le document ; renvoie false si le créneau existe déjà (409)
+async function fsCreateDoc(docId, data, timeoutMs) {
+    return fsCreateDocIn('bookings', docId, data, timeoutMs);
 }
 
 // Normalise un numéro : "+33 6 12..." / "06 12..." -> "0612..."
@@ -1079,25 +1093,9 @@ function normalizePhone(phone) {
     return d;
 }
 
-// Cherche un rendez-vous à venir pour ce numéro (aujourd'hui ou plus tard)
+// Cherche un rendez-vous à venir pour ce numéro (désactivé côté public pour garantir la confidentialité totale)
 async function findUpcomingBookingForPhone(phoneNorm, phoneRaw) {
-    if (!db) return null;
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const nowTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    const queries = [fsQueryEqual('clientPhoneNorm', phoneNorm, 7000)];
-    if (phoneRaw) queries.push(fsQueryEqual('clientPhone', phoneRaw, 7000));
-    const results = await Promise.all(queries);
-
-    let found = null;
-    results.forEach(list => list.forEach(d => {
-        if (!d || !d.date || !d.time) return;
-        const upcoming = d.date > todayIso || (d.date === todayIso && d.time >= nowTime);
-        if (upcoming && (!found || d.date + d.time < found.date + found.time)) found = d;
-    }));
-    return found;
+    return null;
 }
 
 function showBookingError(msg) {
@@ -1328,17 +1326,25 @@ const adminBookingsList = document.getElementById('admin-bookings-list');
 const adminFilterDate = document.getElementById('admin-filter-date');
 const adminRefreshBtn = document.getElementById('admin-refresh-btn');
 
-const ADMIN_PIN_HASH = "f4241a2c76063bdcc88089d24082d69624b8bac1522fb3aab504baa313616fa3";
-let isAdminAuthenticated = sessionStorage.getItem('barber_admin_auth') === '1' || localStorage.getItem('barber_admin_auth') === '1';
+let authUser = null;
 
-async function sha256Hex(str) {
-    try {
-        const buf = new TextEncoder().encode(str);
-        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch {
-        return '';
-    }
+if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged(user => {
+        authUser = user;
+        const logoutBtn = document.getElementById('admin-logout-btn');
+        if (user) {
+            if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+            if (adminAuthBox) adminAuthBox.style.display = 'none';
+            if (adminContentBox) adminContentBox.style.display = 'block';
+            if (adminModal && adminModal.classList.contains('show')) {
+                showAdminPlanning();
+            }
+        } else {
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            if (adminAuthBox) adminAuthBox.style.display = 'block';
+            if (adminContentBox) adminContentBox.style.display = 'none';
+        }
+    });
 }
 
 function openAdminModal() {
@@ -1353,15 +1359,17 @@ function openAdminModal() {
         }
     } catch {}
 
-    if (isAdminAuthenticated) {
+    const user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    const logoutBtn = document.getElementById('admin-logout-btn');
+    if (user) {
+        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+        if (adminAuthBox) adminAuthBox.style.display = 'none';
+        if (adminContentBox) adminContentBox.style.display = 'block';
         showAdminPlanning();
     } else {
+        if (logoutBtn) logoutBtn.style.display = 'none';
         if (adminAuthBox) adminAuthBox.style.display = 'block';
         if (adminContentBox) adminContentBox.style.display = 'none';
-        if (adminPinInput) {
-            adminPinInput.value = '';
-            // Ne pas forcer le .focus() automatique sur mobile car iOS zoome automatiquement sur la page
-        }
     }
     if (window.feather) feather.replace();
 }
@@ -1421,26 +1429,60 @@ window.addEventListener('popstate', () => {
     }
 });
 
-if (adminPinSubmit && adminPinInput) {
-    adminPinSubmit.addEventListener('click', async () => {
-        // Enlève le focus du champ pour forcer iOS à refermer le clavier et remettre le zoom à 1
-        adminPinInput.blur();
-        const val = adminPinInput.value.trim();
-        const hash = await sha256Hex(val);
-        if (hash === ADMIN_PIN_HASH || val === '176521') {
-            isAdminAuthenticated = true;
-            localStorage.setItem('barber_admin_auth', '1');
-            if (adminPinError) adminPinError.style.display = 'none';
-            showAdminPlanning();
-        } else {
-            if (adminPinError) adminPinError.style.display = 'block';
+// Formulaire de connexion sécurisée salon (Firebase Auth)
+const adminLoginForm = document.getElementById('admin-login-form');
+const adminEmailInput = document.getElementById('admin-email-input');
+const adminPasswordInput = document.getElementById('admin-password-input');
+const adminLoginError = document.getElementById('admin-login-error');
+const adminLoginSubmit = document.getElementById('admin-login-submit');
+
+if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = (adminEmailInput?.value || '').trim();
+        const password = adminPasswordInput?.value || '';
+        if (!email || !password) return;
+
+        if (adminLoginSubmit) {
+            adminLoginSubmit.disabled = true;
+            adminLoginSubmit.innerHTML = '<span>Connexion en cours...</span>';
+        }
+        if (adminLoginError) adminLoginError.style.display = 'none';
+
+        try {
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                await firebase.auth().signInWithEmailAndPassword(email, password);
+                if (adminLoginSubmit) {
+                    adminLoginSubmit.disabled = false;
+                    adminLoginSubmit.innerHTML = '<span>Connexion Sécurisée</span>';
+                }
+                if (adminEmailInput) adminEmailInput.value = '';
+                if (adminPasswordInput) adminPasswordInput.value = '';
+                showAdminPlanning();
+            }
+        } catch (err) {
+            console.error('Erreur login salon :', err);
+            if (adminLoginSubmit) {
+                adminLoginSubmit.disabled = false;
+                adminLoginSubmit.innerHTML = '<span>Connexion Sécurisée</span>';
+            }
+            if (adminLoginError) {
+                adminLoginError.style.display = 'block';
+                adminLoginError.textContent = "Email ou mot de passe incorrect.";
+            }
         }
     });
+}
 
-    adminPinInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            adminPinSubmit.click();
+const adminLogoutBtn = document.getElementById('admin-logout-btn');
+if (adminLogoutBtn) {
+    adminLogoutBtn.addEventListener('click', async () => {
+        if (confirm("Se déconnecter de l'Espace Salon ?")) {
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                await firebase.auth().signOut();
+            }
+            closeAdminModal();
         }
     });
 }
@@ -1652,6 +1694,24 @@ async function showAdminPlanning() {
                 allBookings.push({ id: doc.id, ...data, barberId: bookingBarberId(data) });
             });
 
+            // Auto-sync des réservations vers les slots publics anonymes
+            if (allBookings.length > 0) {
+                const batch = db.batch();
+                let hasBatch = false;
+                allBookings.forEach(b => {
+                    if (b.id && b.date && b.time) {
+                        const slotRef = db.collection('slots').doc(b.id);
+                        batch.set(slotRef, {
+                            date: b.date,
+                            time: b.time,
+                            barber: b.barberId || 'isma'
+                        }, { merge: true });
+                        hasBatch = true;
+                    }
+                });
+                if (hasBatch) batch.commit().catch(e => console.warn('Sync batch slots :', e));
+            }
+
             const counts = {};
             allBookings.forEach(b => { counts[b.barberId] = (counts[b.barberId] || 0) + 1; });
             renderAdminBarberFilter(counts);
@@ -1797,6 +1857,7 @@ async function showAdminPlanning() {
                 if (cancelBtn) {
                     cancelBtn.addEventListener('click', async () => {
                         if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
+                            await db.collection('slots').doc(b.id).delete().catch(() => {});
                             await db.collection('bookings').doc(b.id).delete();
                             localStorage.removeItem(reminderKey);
                             showAdminPlanning();
