@@ -1520,6 +1520,8 @@ function renderAdminBarberFilter(counts = {}) {
 let gatewayControlsInitialized = false;
 
 async function loadGatewaySettings() {
+    const input = document.getElementById('admin-gateway-url');
+    if (!input) return;
     let url = localStorage.getItem('barber_sms_gateway_url') || '';
     if (db) {
         try {
@@ -1532,7 +1534,6 @@ async function loadGatewaySettings() {
             console.warn('Lecture config gateway Firestore :', e);
         }
     }
-    const input = document.getElementById('admin-gateway-url');
     const badge = document.getElementById('gateway-status-badge');
     if (input && url && !input.value) input.value = url;
     if (badge) {
