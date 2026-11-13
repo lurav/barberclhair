@@ -1800,7 +1800,7 @@ async function showAdminPlanning() {
                 const barberName = getBarberName(b.barberId);
                 const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === b.barberId));
                 const item = document.createElement('div');
-                item.className = 'admin-booking-item';
+                item.className = `admin-booking-item barber-accent-${barberIndex}`;
 
                 const reminderKey = `barber_reminder_sent_${b.id}`;
                 const alreadySent = !!localStorage.getItem(reminderKey);
@@ -1812,34 +1812,67 @@ async function showAdminPlanning() {
                 const gReviewSmsUrl = hasPhone ? getSmsUrl(b.clientPhone, gReviewMsg) : '#';
 
                 item.innerHTML = `
-                    <div class="admin-booking-header">
-                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-                            <span class="admin-booking-time">${escapeHtml(b.time || '')}</span>
-                            <span class="admin-booking-barber-badge barber-color-${barberIndex}">👤 ${escapeHtml(barberName)}</span>
-                            <span class="admin-booking-service-badge">✂️ ${escapeHtml(b.service || 'Coupe')}</span>
+                    <div class="admin-booking-top-bar">
+                        <div class="admin-booking-badges">
+                            <span class="admin-booking-time-pill" title="Heure du rendez-vous">
+                                <i data-feather="clock"></i>
+                                <span>${escapeHtml(b.time || '')}</span>
+                            </span>
+                            <span class="admin-booking-barber-pill barber-color-${barberIndex}">
+                                <span>👤 ${escapeHtml(barberName)}</span>
+                            </span>
+                            <span class="admin-booking-service-pill">
+                                <span>✂️ ${escapeHtml(b.service || 'Coupe')}</span>
+                            </span>
                         </div>
-                        <button type="button" class="admin-cancel-btn" title="Annuler et supprimer ce rendez-vous" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.76rem; border: 1px solid rgba(255, 107, 107, 0.4); color: #ff8787; background: rgba(255, 107, 107, 0.12); border-radius: 6px; cursor: pointer; flex-shrink: 0; margin-left: auto;">
-                            <i data-feather="trash-2" style="width: 13px; height: 13px;"></i>
+                        <button type="button" class="admin-cancel-btn" title="Annuler et supprimer ce rendez-vous">
+                            <i data-feather="trash-2"></i>
                             <span>Supprimer</span>
                         </button>
                     </div>
-                    <div class="admin-booking-details">
-                        <div class="admin-booking-client">${escapeHtml(b.clientName || 'Client')}</div>
-                        <div class="admin-booking-meta">
-                            <span>📞 <a href="tel:${escapeHtml(b.clientPhone || '')}">${escapeHtml(b.clientPhone || 'Non renseigné')}</a></span>
-                            ${formatCreatedAt(b.createdAt) ? `<div style="margin-top: 0.3rem; font-size: 0.8rem; opacity: 0.75;">🗓️ Réservé le ${formatCreatedAt(b.createdAt)}</div>` : ''}
-                            ${b.clientNote ? `<div style="margin-top: 0.3rem;"><em>Note: ${escapeHtml(b.clientNote)}</em></div>` : ''}
+
+                    <div class="admin-booking-client-info">
+                        <div class="admin-booking-client-main">
+                            <div class="admin-client-avatar">
+                                <i data-feather="user"></i>
+                            </div>
+                            <div class="admin-client-texts">
+                                <div class="admin-booking-client-name">${escapeHtml(b.clientName || 'Client')}</div>
+                                ${hasPhone ? `
+                                    <a href="tel:${escapeHtml(b.clientPhone)}" class="admin-client-phone-link" title="Appeler le client">
+                                        <i data-feather="phone"></i>
+                                        <span>${escapeHtml(b.clientPhone)}</span>
+                                    </a>
+                                ` : `<span class="admin-client-no-phone"><i data-feather="phone-off"></i> Numéro non renseigné</span>`}
+                            </div>
                         </div>
+                        ${formatCreatedAt(b.createdAt) ? `
+                            <div class="admin-booking-created-badge" title="Date d'enregistrement de la réservation">
+                                <i data-feather="calendar"></i>
+                                <span>Pris le ${formatCreatedAt(b.createdAt)}</span>
+                            </div>
+                        ` : ''}
                     </div>
+
+                    ${b.clientNote ? `
+                        <div class="admin-booking-note-box">
+                            <i data-feather="message-circle"></i>
+                            <span><strong>Note :</strong> ${escapeHtml(b.clientNote)}</span>
+                        </div>
+                    ` : ''}
+
                     ${hasPhone ? `
-                        <div class="admin-booking-actions">
-                            <a href="${escapeHtml(smsUrl)}" class="admin-sms-btn ${alreadySent ? 'sent' : ''}" title="Ouvrir le SMS de rappel pré-rempli sur votre téléphone">
+                        <div class="admin-booking-actions-bar">
+                            <a href="${escapeHtml(smsUrl)}" class="admin-action-btn admin-action-sms ${alreadySent ? 'sent' : ''}" title="Ouvrir le SMS de rappel pré-rempli sur votre téléphone">
+                                <i data-feather="message-square"></i>
                                 <span class="sms-label">${alreadySent ? '✓ SMS préparé' : '💬 Rappel SMS'}</span>
                             </a>
-                            <a href="${escapeHtml(waUrl)}" target="_blank" rel="noopener" class="admin-wa-btn" title="Envoyer par WhatsApp">
+                            <a href="${escapeHtml(waUrl)}" target="_blank" rel="noopener" class="admin-action-btn admin-action-wa" title="Envoyer par WhatsApp">
+                                <i data-feather="send"></i>
                                 <span>WhatsApp</span>
                             </a>
-                            <a href="${escapeHtml(gReviewSmsUrl)}" class="admin-sms-btn" style="border-color: rgba(251, 191, 36, 0.45); color: #fbbf24;" title="Envoyer une demande d'avis 5 étoiles Google par SMS">
+                            <a href="${escapeHtml(gReviewSmsUrl)}" class="admin-action-btn admin-action-review" title="Envoyer une demande d'avis 5 étoiles Google par SMS">
+                                <i data-feather="star"></i>
                                 <span>⭐ Avis Google</span>
                             </a>
                         </div>
@@ -1847,7 +1880,7 @@ async function showAdminPlanning() {
                 `;
 
                 if (hasPhone) {
-                    const smsLink = item.querySelector('.admin-sms-btn');
+                    const smsLink = item.querySelector('.admin-action-sms');
                     if (smsLink) {
                         smsLink.addEventListener('click', () => {
                             localStorage.setItem(reminderKey, new Date().toISOString());
@@ -1906,19 +1939,35 @@ function renderAdminLocalBookings(localMap) {
     entries.forEach(({ time, barberId }) => {
         const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === barberId));
         const item = document.createElement('div');
-        item.className = 'admin-booking-item';
+        item.className = `admin-booking-item barber-accent-${barberIndex}`;
         item.innerHTML = `
-            <div class="admin-booking-header">
-                <span class="admin-booking-time">${escapeHtml(time)}</span>
-                <span class="admin-booking-barber-badge barber-color-${barberIndex}">👤 ${escapeHtml(getBarberName(barberId))}</span>
-                <span class="admin-booking-service-badge">✂️ RDV Réservé</span>
+            <div class="admin-booking-top-bar">
+                <div class="admin-booking-badges">
+                    <span class="admin-booking-time-pill" title="Heure du créneau">
+                        <i data-feather="clock"></i>
+                        <span>${escapeHtml(time)}</span>
+                    </span>
+                    <span class="admin-booking-barber-pill barber-color-${barberIndex}">
+                        <span>👤 ${escapeHtml(getBarberName(barberId))}</span>
+                    </span>
+                    <span class="admin-booking-service-pill">
+                        <span>✂️ Créneau réservé</span>
+                    </span>
+                </div>
             </div>
-            <div class="admin-booking-details">
-                <div class="admin-booking-client">Créneau réservé</div>
+            <div class="admin-booking-client-info">
+                <div class="admin-booking-client-main">
+                    <div class="admin-client-avatar"><i data-feather="user"></i></div>
+                    <div class="admin-client-texts">
+                        <div class="admin-booking-client-name">Créneau bloqué</div>
+                        <span class="admin-client-no-phone">Enregistrement local (hors-ligne)</span>
+                    </div>
+                </div>
             </div>
         `;
         adminBookingsList.appendChild(item);
     });
+    if (window.feather) feather.replace();
 }
 
 // Format de la date de prise de RDV (ex: "23/10/2026 à 12h05")
