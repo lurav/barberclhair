@@ -214,7 +214,7 @@ async function loadClosures() {
         const snap = await db.collection('closures').get();
         closedDays.clear();
         snap.forEach(doc => { if (doc.id) closedDays.add(doc.id); });
-        renderCalendar();
+        renderCalendarDays();
         loadSlotsForSelectedDate();
     } catch (e) {
         console.warn('Lecture closures :', e);

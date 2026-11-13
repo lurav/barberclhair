@@ -2,12 +2,12 @@
 // Pages HTML : réseau d'abord (toujours à jour), cache en secours hors-ligne.
 // Fichiers statiques du site : cache d'abord puis mise à jour en arrière-plan.
 // Firebase / API externes : jamais mis en cache (réservations en temps réel).
-const CACHE = 'barber-v31';
+const CACHE = 'barber-v32';
 const PRECACHE = [
   './',
   './index.html',
   './style.css?v=2.38',
-  './script.js?v=2.30',
+  './script.js?v=2.31',
   './fx.css?v=1.4',
   './fx.js?v=1.3',
   './manifest.json',
