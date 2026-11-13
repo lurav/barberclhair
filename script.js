@@ -713,6 +713,10 @@ function openBookingModal(time) {
     if (bookingError) bookingError.style.display = 'none';
     if (btnSubmitBooking) btnSubmitBooking.disabled = false;
     if (btnSubmitText) btnSubmitText.textContent = 'Confirmer mon rendez-vous';
+    if (addonShampooInput) addonShampooInput.checked = false;
+    if (addonShampooWrap && bookingServiceSelect) {
+        addonShampooWrap.style.display = bookingServiceSelect.value.startsWith('Shampoing') ? 'none' : 'flex';
+    }
 
     bookingModal.classList.add('show');
     bookingModal.setAttribute('aria-hidden', 'false');
@@ -1305,6 +1309,12 @@ if (nextWeekBtn) {
 // Close Modal with Escape Key
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        const shortcutModal = document.getElementById('admin-shortcut-modal');
+        if (shortcutModal && shortcutModal.classList.contains('show')) {
+            shortcutModal.classList.remove('show');
+            shortcutModal.setAttribute('aria-hidden', 'true');
+            return;
+        }
         closeBookingModal();
         closeAdminModal();
     }
@@ -1319,9 +1329,6 @@ const adminModalCloseBtn = document.getElementById('admin-modal-close-btn');
 const adminModalCloseOverlay = document.getElementById('admin-modal-close-overlay');
 const adminAuthBox = document.getElementById('admin-auth-box');
 const adminContentBox = document.getElementById('admin-content-box');
-const adminPinInput = document.getElementById('admin-pin-input');
-const adminPinSubmit = document.getElementById('admin-pin-submit');
-const adminPinError = document.getElementById('admin-pin-error');
 const adminBookingsList = document.getElementById('admin-bookings-list');
 const adminFilterDate = document.getElementById('admin-filter-date');
 const adminRefreshBtn = document.getElementById('admin-refresh-btn');
@@ -1378,6 +1385,11 @@ function closeAdminModal(fromHistory = false) {
     if (!adminModal || !adminModal.classList.contains('show')) return;
     adminModal.classList.remove('show');
     adminModal.setAttribute('aria-hidden', 'true');
+    const shortcutModal = document.getElementById('admin-shortcut-modal');
+    if (shortcutModal) {
+        shortcutModal.classList.remove('show');
+        shortcutModal.setAttribute('aria-hidden', 'true');
+    }
     document.body.style.overflow = '';
 
     if (!fromHistory && history.state && history.state.modal === 'admin') {
@@ -1421,6 +1433,11 @@ if (adminNextDayBtn) adminNextDayBtn.addEventListener('click', () => changeAdmin
 
 // Écouteur global pour fermer les modales avec la touche "Retour" du smartphone
 window.addEventListener('popstate', () => {
+    const shortcutModal = document.getElementById('admin-shortcut-modal');
+    if (shortcutModal && shortcutModal.classList.contains('show')) {
+        shortcutModal.classList.remove('show');
+        shortcutModal.setAttribute('aria-hidden', 'true');
+    }
     if (adminModal && adminModal.classList.contains('show')) {
         closeAdminModal(true);
     }
@@ -1516,164 +1533,9 @@ function renderAdminBarberFilter(counts = {}) {
     });
 }
 
-// ---- Passerelle SMS Android (MacroDroid / Webhook 0 €) ----
-let gatewayControlsInitialized = false;
-
-async function loadGatewaySettings() {
-    const input = document.getElementById('admin-gateway-url');
-    if (!input) return;
-    let url = localStorage.getItem('barber_sms_gateway_url') || '';
-    if (db) {
-        try {
-            const doc = await db.collection('bookings').doc('_config_sms_gateway').get();
-            if (doc.exists && doc.data()?.url) {
-                url = doc.data().url;
-                localStorage.setItem('barber_sms_gateway_url', url);
-            }
-        } catch (e) {
-            console.warn('Lecture config gateway Firestore :', e);
-        }
-    }
-    const badge = document.getElementById('gateway-status-badge');
-    if (input && url && !input.value) input.value = url;
-    if (badge) {
-        if (url) {
-            badge.textContent = '🟢 Actif';
-            badge.className = 'badge-status configured';
-        } else {
-            badge.textContent = 'Non configuré';
-            badge.className = 'badge-status not-configured';
-        }
-    }
-    if (!gatewayControlsInitialized) {
-        initGatewayControls();
-    }
-}
-
-function initGatewayControls() {
-    gatewayControlsInitialized = true;
-    const gatewayToggle = document.getElementById('admin-gateway-toggle');
-    const gatewayBody = document.getElementById('admin-gateway-body');
-    const gatewayChevron = document.getElementById('gateway-chevron');
-    if (gatewayToggle && gatewayBody) {
-        gatewayToggle.onclick = () => {
-            const open = gatewayBody.style.display !== 'none';
-            gatewayBody.style.display = open ? 'none' : 'block';
-            if (gatewayChevron) gatewayChevron.style.transform = open ? '' : 'rotate(180deg)';
-        };
-    }
-
-    const saveGatewayBtn = document.getElementById('admin-save-gateway-btn');
-    if (saveGatewayBtn) {
-        saveGatewayBtn.onclick = async () => {
-            const input = document.getElementById('admin-gateway-url');
-            const val = (input?.value || '').trim();
-            const fb = document.getElementById('admin-gateway-feedback');
-            saveGatewayBtn.disabled = true;
-            saveGatewayBtn.textContent = '...';
-            try {
-                localStorage.setItem('barber_sms_gateway_url', val);
-                if (db) {
-                    await db.collection('bookings').doc('_config_sms_gateway').set({
-                        url: val,
-                        updatedAt: new Date().toISOString()
-                    }, { merge: true });
-                }
-                if (fb) {
-                    fb.style.display = 'block';
-                    fb.style.color = '#4ade80';
-                    fb.textContent = val ? '✓ Passerelle enregistrée avec succès !' : '✓ Passerelle désactivée.';
-                }
-                loadGatewaySettings();
-            } catch (err) {
-                if (fb) {
-                    fb.style.display = 'block';
-                    fb.style.color = '#ff6b6b';
-                    fb.textContent = 'Erreur d\'enregistrement : ' + err.message;
-                }
-            } finally {
-                saveGatewayBtn.disabled = false;
-                saveGatewayBtn.textContent = 'Enregistrer';
-            }
-        };
-    }
-
-    const testSmsBtn = document.getElementById('admin-test-sms-btn');
-    if (testSmsBtn) {
-        testSmsBtn.onclick = async () => {
-            const fb = document.getElementById('admin-gateway-feedback');
-            const phoneTest = prompt("Numéro de téléphone pour recevoir le SMS test :", "0749153855");
-            if (!phoneTest) return;
-            testSmsBtn.disabled = true;
-            testSmsBtn.textContent = 'Envoi...';
-            if (fb) { fb.style.display = 'block'; fb.style.color = '#ffd166'; fb.textContent = 'Envoi du SMS test vers ' + phoneTest + '...'; }
-            try {
-                const res = await fetch('/api/send-sms', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'test',
-                        phone: phoneTest
-                    })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (fb) { fb.style.color = '#4ade80'; fb.textContent = '✓ SMS test transmis à votre téléphone Android !'; }
-                } else {
-                    if (fb) { fb.style.color = '#ff6b6b'; fb.textContent = '⚠️ ' + (data.message || 'Passerelle non connectée'); }
-                }
-            } catch (err) {
-                if (fb) { fb.style.color = '#ff6b6b'; fb.textContent = 'Erreur : ' + err.message; }
-            } finally {
-                testSmsBtn.disabled = false;
-                testSmsBtn.textContent = '📲 Tester un SMS';
-            }
-        };
-    }
-
-    const cronTomorrowBtn = document.getElementById('admin-cron-tomorrow-btn');
-    if (cronTomorrowBtn) {
-        cronTomorrowBtn.onclick = async () => {
-            if (!confirm("Envoyer automatiquement un SMS de rappel à tous les clients prévus demain ?")) return;
-            const fb = document.getElementById('admin-gateway-feedback');
-            cronTomorrowBtn.disabled = true;
-            cronTomorrowBtn.textContent = 'Rappels en cours...';
-            try {
-                const res = await fetch('/api/cron-reminders');
-                const data = await res.json();
-                if (data.success) {
-                    if (fb) {
-                        fb.style.display = 'block';
-                        fb.style.color = '#4ade80';
-                        fb.textContent = `✓ ${data.sentCount} rappel(s) envoyé(s) pour demain (${data.totalBookings} RDV au total).`;
-                    }
-                    showAdminPlanning();
-                } else {
-                    if (fb) {
-                        fb.style.display = 'block';
-                        fb.style.color = '#ff6b6b';
-                        fb.textContent = '⚠️ ' + (data.message || 'Erreur lors des rappels');
-                    }
-                }
-            } catch (err) {
-                if (fb) {
-                    fb.style.display = 'block';
-                    fb.style.color = '#ff6b6b';
-                    fb.textContent = 'Erreur : ' + err.message;
-                }
-            } finally {
-                cronTomorrowBtn.disabled = false;
-                cronTomorrowBtn.textContent = '📢 Rappeler les clients de demain';
-            }
-        };
-    }
-}
-
 async function showAdminPlanning() {
     if (adminAuthBox) adminAuthBox.style.display = 'none';
     if (adminContentBox) adminContentBox.style.display = 'block';
-
-    loadGatewaySettings();
 
     const selectedIso = formatDateISO(selectedDate);
     if (adminFilterDate) {
@@ -1736,12 +1598,6 @@ async function showAdminPlanning() {
                     parts.push(`${b.name} : ${c}`);
                 });
                 kpiBarbers.textContent = parts.join(' • ') || '-';
-            }
-
-            // Actions de journée : Imprimer & Bloquer/Débloquer
-            const printBtn = document.getElementById('admin-print-btn');
-            if (printBtn) {
-                printBtn.onclick = () => window.print();
             }
 
             // Bouton Rappel Groupé SMS iPhone
@@ -2215,7 +2071,8 @@ serviceCards.forEach(card => {
         document.querySelectorAll('[data-open-status]').forEach(el => {
             el.classList.remove('is-open', 'is-soon', 'is-closed');
             el.classList.add('is-' + s.cls);
-            el.querySelector('.open-status-text').textContent = s.text;
+            const txt = el.querySelector('.open-status-text');
+            if (txt) txt.textContent = s.text;
         });
     }
 
