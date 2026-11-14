@@ -12,7 +12,7 @@ service cloud.firestore {
                     && request.resource.data.date is string
                     && request.resource.data.time is string
                     && request.resource.data.barber is string;
-      allow update: if false;
+      allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
 
@@ -27,7 +27,7 @@ service cloud.firestore {
                     && request.resource.data.time is string
                     && request.resource.data.clientName is string
                     && request.resource.data.clientPhone is string;
-      allow update: if false;
+      allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
 

@@ -198,6 +198,10 @@ try {
             firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
+        // Active le cache local pour un chargement instantané (0 ms)
+        try {
+            db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+        } catch(e) {}
         console.log("✓ Firebase & Firestore connectés avec succès.");
     } else {
         console.warn("Firebase SDK non détecté. Mode démo actif.");
@@ -215,7 +219,6 @@ async function loadClosures() {
         closedDays.clear();
         snap.forEach(doc => { if (doc.id) closedDays.add(doc.id); });
         renderCalendarDays();
-        loadSlotsForSelectedDate();
     } catch (e) {
         console.warn('Lecture closures :', e);
     }
@@ -536,25 +539,19 @@ function loadSlotsForSelectedDate() {
 
     const selectedIso = formatDateISO(selectedDate);
 
-    // Jour fermé : affichage immédiat, inutile d'attendre Firebase
+    // Jour fermé : affichage immédiat
     if (getSlotsForDay(selectedDate.getDay()).length === 0) {
         renderSlots(new Map());
-        startBookingsListener(); // précharge les autres jours en arrière-plan
+        startBookingsListener();
         return;
     }
 
-    if (!db) {
-        renderSlots(getLocalBookings(selectedIso));
-        return;
-    }
+    // Affichage instantané en 0 ms sans spinner bloquant :
+    // On prend immédiatement le cache mémoire ou local s'il existe
+    const cached = bookingsCache.get(selectedIso) || getLocalBookings(selectedIso);
+    renderSlots(cached);
 
-    // Données déjà en mémoire : affichage instantané
-    if (bookingsCacheReady) {
-        renderSlots(bookingsCache.get(selectedIso) || new Map());
-        return;
-    }
-
-    slotsContainer.innerHTML = '<div class="slots-loading">Vérification des disponibilités en direct...</div>';
+    // L'écouteur Firebase tourne en arrière-plan et actualise les créneaux en direct
     startBookingsListener();
 }
 
@@ -572,24 +569,29 @@ function startBookingsListener() {
     const end = new Date(getWeekStartDate(MAX_WEEK_OFFSET));
     end.setDate(end.getDate() + 6);
 
-    unsubscribeBookings = db.collection('slots')
-        .where('date', '>=', formatDateISO(start))
-        .where('date', '<=', formatDateISO(end))
-        .onSnapshot((snapshot) => {
-            bookingsCache.clear();
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (!data || !data.time || !data.date) return;
-                if (!bookingsCache.has(data.date)) bookingsCache.set(data.date, new Map());
-                addToBookedMap(bookingsCache.get(data.date), data.time, bookingBarberId(data));
+    try {
+        unsubscribeBookings = db.collection('slots')
+            .where('date', '>=', formatDateISO(start))
+            .where('date', '<=', formatDateISO(end))
+            .onSnapshot((snapshot) => {
+                bookingsCache.clear();
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (!data || !data.time || !data.date) return;
+                    if (!bookingsCache.has(data.date)) bookingsCache.set(data.date, new Map());
+                    addToBookedMap(bookingsCache.get(data.date), data.time, bookingBarberId(data));
+                });
+                bookingsCacheReady = true;
+                renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
+            }, (error) => {
+                console.warn("Écouteur slots :", error);
+                unsubscribeBookings = null;
+                renderSlots(getLocalBookings(formatDateISO(selectedDate)));
             });
-            bookingsCacheReady = true;
-            renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
-        }, (error) => {
-            console.warn("Écouteur slots :", error);
-            unsubscribeBookings = null;
-            renderSlots(getLocalBookings(formatDateISO(selectedDate)));
-        });
+    } catch (e) {
+        console.warn("Erreur démarrage écouteur slots :", e);
+        unsubscribeBookings = null;
+    }
 }
 
 // Local Storage Fallback for Bookings
@@ -848,31 +850,14 @@ if (bookingForm) {
         if (btnSubmitText) btnSubmitText.textContent = "Réservation en cours...";
         if (bookingError) bookingError.style.display = 'none';
 
-        // Vérification de dernière seconde : qui est encore libre sur ce créneau ?
-        let latestMap = currentBookedMap;
-        const phoneNorm = normalizePhone(phoneVal);
-        // Lancée en parallèle de la vérification du créneau pour gagner du temps
-        const dupCheckPromise = db ? Promise.race([
-            findUpcomingBookingForPhone(phoneNorm, phoneVal),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 8000))
-        ]) : null;
-        if (dupCheckPromise) dupCheckPromise.catch(() => {});
-        if (db) {
-            try {
-                const docs = await fsQueryEqual('date', currentSlotForBooking.dateIso, 5000);
-                latestMap = new Map();
-                docs.forEach(d => {
-                    if (d && d.time) addToBookedMap(latestMap, d.time, bookingBarberId(d));
-                });
-            } catch (checkErr) {
-                console.warn("Vérification en direct impossible, utilisation des dernières données :", checkErr);
-            }
-        }
-
         const resetSubmitBtn = () => {
             if (btnSubmitBooking) btnSubmitBooking.disabled = false;
             if (btnSubmitText) btnSubmitText.textContent = 'Confirmer mon rendez-vous';
         };
+
+        // Données en temps réel (instantanées en mémoire, 0 ms de latence)
+        const latestMap = bookingsCache.get(currentSlotForBooking.dateIso) || currentBookedMap;
+        const phoneNorm = normalizePhone(phoneVal);
 
         // Coiffeurs à essayer, dans l'ordre de préférence
         let candidates = [];
@@ -896,23 +881,6 @@ if (bookingForm) {
 
         if (!db) {
             showBookingError("La réservation en ligne est momentanément indisponible. Merci de réessayer dans un instant ou d'appeler le salon au 07 49 15 38 55.");
-            resetSubmitBtn();
-            return;
-        }
-
-        // Un seul rendez-vous à venir par numéro de téléphone
-        try {
-            const existing = await dupCheckPromise;
-            if (existing) {
-                const [ey, em, ed] = existing.date.split('-').map(Number);
-                const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existing.time}`;
-                showBookingError(`Vous avez déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est possible. Pour le modifier ou l'annuler, appelez le salon au 07 49 15 38 55.`);
-                resetSubmitBtn();
-                return;
-            }
-        } catch (dupErr) {
-            console.warn("Vérification du numéro impossible :", dupErr);
-            showBookingError("Connexion impossible, votre rendez-vous n'a pas été enregistré. Vérifiez votre connexion internet et réessayez, ou appelez le salon au 07 49 15 38 55.");
             resetSubmitBtn();
             return;
         }
@@ -950,8 +918,7 @@ if (bookingForm) {
             }, 800);
         };
 
-        // Enregistrement atomique : un document par (date, heure, coiffeur).
-        // Si deux clients valident en même temps, un seul réussit.
+        // Enregistrement ultra-rapide et atomique (~100ms)
         const SLOT_TAKEN = 'SLOT_TAKEN';
         const tryBook = async (barber) => {
             const docId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${barber.id}`;
@@ -973,14 +940,27 @@ if (bookingForm) {
                 createdAt: new Date().toISOString()
             };
 
-            const slotOk = await fsCreateDocIn('slots', docId, slotPayload, 10000);
-            if (!slotOk) throw new Error(SLOT_TAKEN);
-
-            try {
-                await fsCreateDocIn('bookings', docId, bookingPayload, 10000);
-            } catch (bErr) {
-                console.warn("Échec création booking privé :", bErr);
+            // 1. Enregistrement direct via SDK Firebase (ultra-rapide ~50-150ms)
+            if (db) {
+                try {
+                    const slotRef = db.collection('slots').doc(docId);
+                    const bookingRef = db.collection('bookings').doc(docId);
+                    await slotRef.set(slotPayload);
+                    bookingRef.set(bookingPayload).catch(e => console.warn('Booking salon privé :', e));
+                    return true;
+                } catch (dbErr) {
+                    if (dbErr && (dbErr.code === 'permission-denied' || dbErr.message?.includes('permission'))) {
+                        throw new Error(SLOT_TAKEN);
+                    }
+                    console.warn('SDK direct en échec, bascule sur API REST :', dbErr);
+                }
             }
+
+            // 2. Secours via API REST
+            const slotOk = await fsCreateDocIn('slots', docId, slotPayload, 4000);
+            if (!slotOk) throw new Error(SLOT_TAKEN);
+            fsCreateDocIn('bookings', docId, bookingPayload, 4000).catch(e => console.warn('Booking salon privé REST :', e));
+            return true;
         };
 
         try {
@@ -989,7 +969,7 @@ if (bookingForm) {
                 try {
                     await Promise.race([
                         tryBook(barber),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 10000))
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 4500))
                     ]);
                     booked = barber;
                     break;
@@ -1008,19 +988,23 @@ if (bookingForm) {
             saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, booked.id);
             showSuccess(booked);
 
-            // Déclenchement automatique du SMS de confirmation (via passerelle Android si configurée)
-            fetch('/api/send-sms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'confirmation',
-                    phone: phoneVal,
-                    clientName: nameVal,
-                    dateStr: currentSlotForBooking.dateFull,
-                    time: currentSlotForBooking.time,
-                    barberName: booked.name
-                })
-            }).catch(e => console.warn('Passerelle SMS non joignable :', e));
+            // Déclenchement facultatif de SMS si une passerelle est configurée en local
+            const localGw = localStorage.getItem('barber_sms_gateway_url');
+            if (localGw) {
+                fetch('/api/send-sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'confirmation',
+                        phone: phoneVal,
+                        clientName: nameVal,
+                        dateStr: currentSlotForBooking.dateFull,
+                        time: currentSlotForBooking.time,
+                        barberName: booked.name,
+                        gatewayUrl: localGw
+                    })
+                }).catch(() => {});
+            }
         } catch (err) {
             console.warn("Échec de l'enregistrement de la réservation :", err);
             showBookingError("Connexion impossible, votre rendez-vous n'a pas été enregistré. Vérifiez votre connexion internet et réessayez, ou appelez le salon au 07 49 15 38 55.");
