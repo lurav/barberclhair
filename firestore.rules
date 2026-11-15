@@ -42,15 +42,6 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
-    // ── 5. Verrou 1 seul RDV actif par numéro (anonymisé par SHA-256) ──
-    match /active_phones/{phoneHash} {
-      allow read: if true;
-      allow create, update: if request.resource.data.keys().hasOnly(['date','time','slotId','updatedAt'])
-                            && request.resource.data.date is string
-                            && request.resource.data.time is string;
-      allow delete: if true;
-    }
-
     // ── Bloquer tout le reste ──
     match /{document=**} {
       allow read, write: if false;

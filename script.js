@@ -1,3 +1,6 @@
+// Nettoyage automatique d'anciens verrous de test éventuels
+try { localStorage.removeItem('barber_active_booking'); } catch(e) {}
+
 // Toggle Mobile Menu
 const navMenu = document.getElementById('nav-menu'),
       navToggle = document.getElementById('nav-toggle'),
@@ -313,6 +316,7 @@ function renderBarberOptions() {
         btn.addEventListener('click', () => {
             selectedBarber = opt.id;
             renderBarberOptions();
+            renderCalendarDays();
             renderSlots(currentBookedMap);
         });
         container.appendChild(btn);
@@ -391,10 +395,13 @@ function isSlotPast(date, time) {
     return slot.getTime() <= Date.now() + SLOT_MARGIN_MIN * 60 * 1000;
 }
 
-function hasBookableSlot(date) {
+function hasBookableSlot(date, bookedMap) {
     const iso = formatDateISO(date);
     if (closedDays.has(iso)) return false;
-    return getSlotsForDay(date.getDay()).some(t => !isSlotPast(date, t));
+    const slots = getSlotsForDay(date.getDay());
+    if (slots.length === 0) return false;
+    const map = bookedMap || bookingsCache.get(iso) || getLocalBookings(iso);
+    return slots.some(t => !isSlotPast(date, t) && !isSlotTaken(t, map, selectedBarber));
 }
 
 // Numéro de semaine (offset) contenant une date donnée
@@ -410,7 +417,7 @@ function weekOffsetOf(date) {
 function firstBookableDayFrom(start) {
     const d = new Date(start);
     d.setHours(0, 0, 0, 0);
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 28; i++) {
         if (hasBookableSlot(d)) return d;
         d.setDate(d.getDate() + 1);
     }
@@ -475,9 +482,13 @@ function renderCalendarDays() {
         const dayOfWeek = date.getDay();
         const isPast = date < today;
         const isMonday = (dayOfWeek === 1);
-        const isFinishedToday = !isPast && !isMonday && !hasBookableSlot(date);
-        const isDisabled = isPast || isMonday || isFinishedToday;
-        const isSelected = formatDateISO(date) === formatDateISO(selectedDate);
+        const iso = formatDateISO(date);
+        const isClosed = closedDays.has(iso);
+        const daySlots = getSlotsForDay(dayOfWeek);
+        const dayMap = bookingsCache.get(iso) || getLocalBookings(iso);
+        const isFull = !isPast && !isMonday && !isClosed && (daySlots.length > 0) && daySlots.every(t => isSlotPast(date, t) || isSlotTaken(t, dayMap, selectedBarber));
+        const isDisabled = isPast || isMonday || isClosed;
+        const isSelected = iso === formatDateISO(selectedDate);
 
         const col = document.createElement('div');
         col.className = 'cal-col';
@@ -490,14 +501,14 @@ function renderCalendarDays() {
         dateBtn.className = 'cal-date';
         dateBtn.textContent = date.getDate();
 
-        if (isSelected && !isDisabled) {
+        if (isSelected) {
             dateBtn.classList.add('active');
         }
 
         if (isDisabled) {
             dateBtn.classList.add('disabled');
             col.classList.add('disabled');
-            if (isMonday) {
+            if (isMonday || isClosed) {
                 const closedBadge = document.createElement('span');
                 closedBadge.className = 'cal-closed-badge';
                 closedBadge.textContent = 'Fermé';
@@ -507,6 +518,23 @@ function renderCalendarDays() {
                 daysContainer.appendChild(col);
                 return;
             }
+        } else if (isFull) {
+            col.classList.add('cal-full-day');
+            const fullBadge = document.createElement('span');
+            fullBadge.className = 'cal-closed-badge cal-full-badge';
+            fullBadge.textContent = 'Complet';
+            col.style.cursor = 'pointer';
+            col.addEventListener('click', (e) => {
+                e.preventDefault();
+                selectedDate = new Date(date);
+                renderCalendarDays();
+                loadSlotsForSelectedDate();
+            });
+            col.appendChild(dayName);
+            col.appendChild(dateBtn);
+            col.appendChild(fullBadge);
+            daysContainer.appendChild(col);
+            return;
         } else {
             col.style.cursor = 'pointer';
             col.addEventListener('click', (e) => {
@@ -582,10 +610,22 @@ function startBookingsListener() {
                     addToBookedMap(bookingsCache.get(data.date), data.time, bookingBarberId(data));
                 });
                 bookingsCacheReady = true;
+
+                // Si la date actuelle n'a aucun créneau disponible (ex : jour complet),
+                // on bascule automatiquement vers le premier jour disponible
+                if (!hasBookableSlot(selectedDate)) {
+                    const nextAvailable = firstBookableDayFrom(new Date());
+                    if (nextAvailable && formatDateISO(nextAvailable) !== formatDateISO(selectedDate)) {
+                        selectedDate = nextAvailable;
+                        currentWeekOffset = weekOffsetOf(selectedDate);
+                    }
+                }
+                renderCalendarDays();
                 renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
             }, (error) => {
                 console.warn("Écouteur slots :", error);
                 unsubscribeBookings = null;
+                renderCalendarDays();
                 renderSlots(getLocalBookings(formatDateISO(selectedDate)));
             });
     } catch (e) {
@@ -641,6 +681,15 @@ function renderSlots(bookedMap = new Map()) {
     if (availableSlots.length === 0) {
         slotsContainer.innerHTML = '<div class="slots-empty">Le salon est fermé ce jour-là.</div>';
         return;
+    }
+
+    const allBusyOrPast = availableSlots.every(t => isSlotPast(selectedDate, t) || isSlotTaken(t, bookedMap, selectedBarber));
+    if (allBusyOrPast) {
+        const notice = document.createElement('div');
+        notice.className = 'slots-full-notice';
+        notice.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 0.85rem 1rem; margin-bottom: 0.75rem; background: rgba(229, 169, 59, 0.1); border: 1px solid rgba(229, 169, 59, 0.35); border-radius: 8px; color: var(--accent-gold); font-size: 0.88rem; font-weight: 500;';
+        notice.textContent = "Tous les créneaux pour cette date sont complets. Cliquez sur un autre jour dans le calendrier ci-dessus pour réserver.";
+        slotsContainer.appendChild(notice);
     }
 
     let renderedCount = 0;
@@ -859,17 +908,6 @@ if (bookingForm) {
         const latestMap = bookingsCache.get(currentSlotForBooking.dateIso) || currentBookedMap;
         const phoneNorm = normalizePhone(phoneVal);
 
-        // ── Règle stricte : 1 seul rendez-vous à la fois par numéro de téléphone ──
-        const phoneHash = await sha256Hex(phoneNorm);
-        const existingBooking = await checkActivePhoneBooking(phoneNorm, phoneHash);
-        if (existingBooking) {
-            const [ey, em, ed] = existingBooking.date.split('-').map(Number);
-            const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existingBooking.time}`;
-            showBookingError(`Vous avez déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est possible. Pour le modifier ou l'annuler, contactez le salon au 07 49 15 38 55.`);
-            resetSubmitBtn();
-            return;
-        }
-
         // Coiffeurs à essayer, dans l'ordre de préférence
         let candidates = [];
         if (currentSlotForBooking.barberChoice === ANY_BARBER) {
@@ -916,25 +954,6 @@ if (bookingForm) {
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
             bookingForm.reset();
             loadSlotsForSelectedDate();
-
-            // Enregistrement du verrou de numéro (localStorage + Firestore anonymisé)
-            const activePhonePayload = {
-                date: currentSlotForBooking.dateIso,
-                time: currentSlotForBooking.time,
-                slotId: (assignedBarber ? `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${assignedBarber.id}` : ''),
-                updatedAt: new Date().toISOString()
-            };
-            try {
-                localStorage.setItem('barber_active_booking', JSON.stringify({
-                    phone: phoneNorm,
-                    date: currentSlotForBooking.dateIso,
-                    time: currentSlotForBooking.time,
-                    slotId: activePhonePayload.slotId
-                }));
-            } catch(e) {}
-            if (db) {
-                db.collection('active_phones').doc(phoneHash).set(activePhonePayload).catch(e => console.warn('Lock active_phones :', e));
-            }
 
             if (window.feather) feather.replace();
 
@@ -1134,44 +1153,6 @@ function isBookingPast(dateIso, time) {
     const [y, mo, d] = (dateIso || '').split('-').map(Number);
     const slotDate = new Date(y, mo - 1, d, h, m, 0, 0);
     return slotDate.getTime() <= Date.now();
-}
-
-// Vérifie si le numéro a déjà un rendez-vous futur actif (1 seul RDV à la fois)
-async function checkActivePhoneBooking(phoneNorm, phoneHash) {
-    // 1. Vérification locale immédiate (0 ms)
-    try {
-        const localRaw = localStorage.getItem('barber_active_booking');
-        if (localRaw) {
-            const lb = JSON.parse(localRaw);
-            if (lb && lb.phone === phoneNorm && lb.date && lb.time && !isBookingPast(lb.date, lb.time)) {
-                return lb;
-            }
-        }
-    } catch(e) {}
-
-    // 2. Vérification Firestore temps réel (~40 ms)
-    if (db) {
-        try {
-            const doc = await db.collection('active_phones').doc(phoneHash).get();
-            if (doc.exists) {
-                const data = doc.data();
-                if (data && data.date && data.time && !isBookingPast(data.date, data.time)) {
-                    // Si le créneau associé a été supprimé par le salon dans /slots, on libère le verrou
-                    if (data.slotId) {
-                        const slotSnap = await db.collection('slots').doc(data.slotId).get();
-                        if (!slotSnap.exists) {
-                            db.collection('active_phones').doc(phoneHash).delete().catch(() => {});
-                            return null;
-                        }
-                    }
-                    return data;
-                }
-            }
-        } catch(e) {
-            console.warn("Vérification verrou téléphone :", e);
-        }
-    }
-    return null;
 }
 
 function showBookingError(msg) {
@@ -1486,10 +1467,8 @@ if (adminAuthBackBtn) adminAuthBackBtn.addEventListener('click', () => closeAdmi
 function changeAdminDay(delta) {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + delta);
-    // Dimanche fermé (0) -> sauter au samedi ou mardi
-    if (d.getDay() === 0) d.setDate(d.getDate() + (delta >= 0 ? 2 : -1));
-    // Lundi fermé (1) -> sauter au mardi ou samedi
-    if (d.getDay() === 1) d.setDate(d.getDate() + (delta >= 0 ? 1 : -2));
+    // Lundi fermé (1) -> sauter au mardi ou dimanche
+    if (d.getDay() === 1) d.setDate(d.getDate() + (delta >= 0 ? 1 : -1));
 
     selectedDate = d;
     currentWeekOffset = weekOffsetOf(selectedDate);
@@ -1629,7 +1608,7 @@ async function showAdminPlanning() {
                 allBookings.push({ id: doc.id, ...data, barberId: bookingBarberId(data) });
             });
 
-            // Auto-sync des réservations vers les slots publics anonymes et active_phones
+            // Auto-sync des réservations vers les slots publics anonymes
             if (allBookings.length > 0) {
                 const batch = db.batch();
                 let hasBatch = false;
@@ -1642,18 +1621,6 @@ async function showAdminPlanning() {
                             barber: b.barberId || 'isma'
                         }, { merge: true });
                         hasBatch = true;
-                    }
-                    if (b.clientPhone && b.date && b.time && !isBookingPast(b.date, b.time)) {
-                        const pNorm = normalizePhone(b.clientPhone);
-                        if (pNorm) {
-                            const pHash = await sha256Hex(pNorm);
-                            db.collection('active_phones').doc(pHash).set({
-                                date: b.date,
-                                time: b.time,
-                                slotId: b.id,
-                                updatedAt: new Date().toISOString()
-                            }, { merge: true }).catch(() => {});
-                        }
                     }
                 });
                 if (hasBatch) batch.commit().catch(e => console.warn('Sync batch slots :', e));
@@ -1925,13 +1892,6 @@ async function showAdminPlanning() {
                         if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
                             await db.collection('slots').doc(b.id).delete().catch(() => {});
                             await db.collection('bookings').doc(b.id).delete();
-                            if (b.clientPhone) {
-                                const pNorm = normalizePhone(b.clientPhone);
-                                if (pNorm) {
-                                    const pHash = await sha256Hex(pNorm);
-                                    db.collection('active_phones').doc(pHash).delete().catch(() => {});
-                                }
-                            }
                             localStorage.removeItem(reminderKey);
                             showAdminPlanning();
                             loadSlotsForSelectedDate();
