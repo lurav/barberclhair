@@ -3918,7 +3918,8 @@ img {
 
 .xmas-off .xmas-edition-badge,
 .xmas-off #xmas-toggle-btn,
-.xmas-off #xmas-snow-canvas {
+.xmas-off #xmas-snow-canvas,
+.xmas-off #xmas-countdown-box {
     display: none !important;
 }
 

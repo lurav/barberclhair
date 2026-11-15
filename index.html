@@ -509,6 +509,103 @@
         html.xmas-on .section-title {
             text-shadow: 0 0 18px rgba(245, 208, 97, 0.35);
         }
+
+        /* ── 🍾 Compte à rebours Nouvel An ────────────────────── */
+        .xmas-countdown-box {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(28, 28, 34, 0.88), rgba(18, 18, 22, 0.94));
+            border: 1px solid rgba(245, 208, 97, 0.35);
+            border-radius: 14px;
+            padding: 0.65rem 1.15rem;
+            margin: 0.75rem 0 1.25rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 208, 97, 0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            width: fit-content;
+        }
+
+        .xmas-countdown-title {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--xmas-gold, #f5d061);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.45rem;
+        }
+
+        .xmas-countdown-sub {
+            color: rgba(255, 255, 255, 0.65);
+            font-weight: 500;
+            font-size: 0.72rem;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .xmas-countdown-timer {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .xmas-countdown-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 44px;
+            padding: 0.25rem 0.4rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(245, 208, 97, 0.2);
+            border-radius: 8px;
+        }
+
+        .xmas-countdown-num {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1;
+            text-shadow: 0 0 10px rgba(245, 208, 97, 0.5);
+        }
+
+        .xmas-countdown-lbl {
+            font-size: 0.62rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 0.2rem;
+        }
+
+        .xmas-countdown-sep {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--xmas-gold, #f5d061);
+            animation: xmasSepBlink 1s infinite;
+        }
+
+        @keyframes xmasSepBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        @media (max-width: 480px) {
+            .xmas-countdown-box {
+                padding: 0.55rem 0.85rem;
+            }
+            .xmas-countdown-item {
+                min-width: 38px;
+                padding: 0.2rem 0.3rem;
+            }
+            .xmas-countdown-num {
+                font-size: 1.15rem;
+            }
+        }
     </style>
     <script>
         (function () {
@@ -778,6 +875,36 @@
                 <p class="hero-description reveal">
                     Plus qu'un simple salon, une véritable expérience de soin pour l'homme moderne. Entrez dans l'univers d'exception Barber c l'hair.
                 </p>
+
+                <!-- 🍾 Compte à rebours Nouvel An 2027 -->
+                <div class="xmas-countdown-box reveal" id="xmas-countdown-box">
+                    <div class="xmas-countdown-title">
+                        <span>🍾 Cap sur 2027</span>
+                        <span class="xmas-countdown-sub">• Soyez prêt pour le Réveillon</span>
+                    </div>
+                    <div class="xmas-countdown-timer">
+                        <div class="xmas-countdown-item">
+                            <span class="xmas-countdown-num" id="cd-days">00</span>
+                            <span class="xmas-countdown-lbl">Jours</span>
+                        </div>
+                        <span class="xmas-countdown-sep">:</span>
+                        <div class="xmas-countdown-item">
+                            <span class="xmas-countdown-num" id="cd-hours">00</span>
+                            <span class="xmas-countdown-lbl">Heures</span>
+                        </div>
+                        <span class="xmas-countdown-sep">:</span>
+                        <div class="xmas-countdown-item">
+                            <span class="xmas-countdown-num" id="cd-mins">00</span>
+                            <span class="xmas-countdown-lbl">Min</span>
+                        </div>
+                        <span class="xmas-countdown-sep">:</span>
+                        <div class="xmas-countdown-item">
+                            <span class="xmas-countdown-num" id="cd-secs">00</span>
+                            <span class="xmas-countdown-lbl">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="hero-btns reveal">
                     <a href="#booking" class="btn btn-accent">Prendre Rendez-vous</a>
                     <a href="#services" class="btn btn-outline">Découvrir les Tarifs</a>
@@ -1873,6 +2000,41 @@
         }
 
         animId = requestAnimationFrame(draw);
+
+        // 🍾 Compte à rebours du Nouvel An 2027
+        var cdDays = document.getElementById('cd-days');
+        var cdHours = document.getElementById('cd-hours');
+        var cdMins = document.getElementById('cd-mins');
+        var cdSecs = document.getElementById('cd-secs');
+        var cdBox = document.getElementById('xmas-countdown-box');
+        var targetDate = new Date(2027, 0, 1, 0, 0, 0); // 1er Janvier 2027 00:00:00
+
+        function updateCountdown() {
+            var now = new Date();
+            var diff = targetDate.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                if (cdBox) {
+                    cdBox.innerHTML = '<div style="font-size: 1.15rem; font-weight: 800; color: #f5d061; text-align: center; text-shadow: 0 0 15px rgba(245,208,97,0.7); padding: 0.35rem 0.5rem;">🎉 Bonne Année 2027 ! 🥂✨<div style="font-size: 0.8rem; font-weight: 500; color: #fff; margin-top: 0.3rem;">Toute l\'équipe Barber C L\'Hair vous souhaite une excellente année !</div></div>';
+                }
+                return;
+            }
+
+            var days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            var hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            var minutes = Math.floor((diff / (1000 * 60)) % 60);
+            var seconds = Math.floor((diff / 1000) % 60);
+
+            if (cdDays) cdDays.textContent = String(days).padStart(2, '0');
+            if (cdHours) cdHours.textContent = String(hours).padStart(2, '0');
+            if (cdMins) cdMins.textContent = String(minutes).padStart(2, '0');
+            if (cdSecs) cdSecs.textContent = String(seconds).padStart(2, '0');
+        }
+
+        if (cdBox) {
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
+        }
 
         // Pause quand l'onglet n'est pas actif (économie batterie)
         document.addEventListener('visibilitychange', function() {
