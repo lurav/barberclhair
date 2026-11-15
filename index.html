@@ -46,7 +46,7 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css?v=2.48">
+    <link rel="stylesheet" href="style.css?v=2.49">
     <link rel="stylesheet" href="fx.css?v=1.4">
 
     <!-- 🎃 Halloween Theme (actif automatiquement du 1er au 31 octobre, coupé le 1er novembre à 00h00) -->
@@ -418,6 +418,114 @@
         })();
     </script>
 
+    <!-- ❄️ Thème Fêtes de Fin d'Année (actif automatiquement du 1er décembre au 5 janvier) -->
+    <style id="xmas-style">
+        /* ── Variables Fêtes de Fin d'Année ───────────────────── */
+        :root {
+            --xmas-gold:         #f5d061;
+            --xmas-gold-light:   #fff2a3;
+            --xmas-silver:       #e2e8f0;
+            --xmas-glow:         rgba(245, 208, 97, 0.45);
+        }
+
+        /* ── Badge Fin d'Année Hero ──────────────────────────── */
+        .xmas-edition-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(255, 255, 255, 0.08));
+            border: 1px solid rgba(245, 208, 97, 0.55);
+            color: #fff;
+            padding: 0.45rem 1.15rem;
+            border-radius: 50px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 0 25px rgba(245, 208, 97, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            animation: xmasBadgeGlow 3.5s ease-in-out infinite alternate;
+        }
+        @keyframes xmasBadgeGlow {
+            0% {
+                box-shadow: 0 0 15px rgba(245, 208, 97, 0.25);
+                border-color: rgba(245, 208, 97, 0.4);
+            }
+            100% {
+                box-shadow: 0 0 35px rgba(245, 208, 97, 0.55), 0 0 50px rgba(255, 255, 255, 0.2);
+                border-color: rgba(255, 245, 200, 0.85);
+            }
+        }
+
+        /* ── Bouton Ambiance Fin d'Année ──────────────────────── */
+        .xmas-toggle-btn {
+            background: rgba(245, 208, 97, 0.16);
+            border: 1px solid rgba(245, 208, 97, 0.4);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .xmas-toggle-btn:hover {
+            transform: scale(1.1);
+            background: rgba(245, 208, 97, 0.32);
+            box-shadow: 0 0 18px rgba(245, 208, 97, 0.5);
+        }
+        .xmas-toggle-btn:active {
+            transform: scale(0.9);
+        }
+        body.xmas-disabled .xmas-toggle-btn {
+            opacity: 0.45;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            filter: grayscale(1);
+        }
+        body.xmas-disabled #xmas-snow-canvas {
+            display: none !important;
+        }
+
+        /* ── Canvas Chute de Neige Festive ────────────────────── */
+        #xmas-snow-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9996;
+            will-change: transform;
+        }
+
+        /* ── Lueur festive sur les titres de sections ─────────── */
+        html.xmas-on .section-title {
+            text-shadow: 0 0 18px rgba(245, 208, 97, 0.35);
+        }
+    </style>
+    <script>
+        (function () {
+            var now = new Date(), m = now.getMonth(), d = now.getDate();
+            var testMode = window.location.search.indexOf('theme=findannee') !== -1 || window.location.search.indexOf('theme=winter') !== -1;
+            // Actif tout le mois de décembre (mois 11 en JS) et début janvier (jusqu'au 5 janvier)
+            var inSeason = (m === 11) || (m === 0 && d <= 5) || testMode;
+            if (!inSeason) {
+                var s = document.getElementById('xmas-style');
+                if (s) s.remove();
+                document.documentElement.classList.add('xmas-off');
+            } else {
+                document.documentElement.classList.add('xmas-on');
+            }
+        })();
+    </script>
+
     <!-- Structured Data (Schema.org BarberShop) -->
     <script type="application/ld+json">
     {
@@ -637,6 +745,7 @@
 
             <div class="nav-actions">
                 <button id="hw-toggle-btn" class="hw-toggle-btn" aria-label="Ambiance Halloween" title="Ambiance Halloween (cliquez pour couper/activer)">🎃</button>
+                <button id="xmas-toggle-btn" class="xmas-toggle-btn" aria-label="Ambiance Fin d'année" title="Ambiance Fin d'année (cliquez pour couper/activer)">❄️</button>
                 <a href="#booking" class="nav-quick-btn">Réserver</a>
                 <div class="nav-toggle" id="nav-toggle" aria-label="Menu de navigation">
                     <i data-feather="menu"></i>
@@ -661,6 +770,9 @@
                 </div>
                 <div class="hw-edition-badge reveal">
                     🎃 &nbsp;ÉDITION HALLOWEEN 2026&nbsp; 🎃
+                </div>
+                <div class="xmas-edition-badge reveal">
+                    ✨ &nbsp;FÊTES DE FIN D'ANNÉE&nbsp; ❄️
                 </div>
                 <h1 class="hero-title reveal">L'Art de la Coiffure <br><span>& de la Barbe.</span></h1>
                 <p class="hero-description reveal">
@@ -1675,6 +1787,116 @@
             });
         }
 
+    })();
+    </script>
+
+    <!-- ❄️ Thème Fin d'Année Décorations (Décembre) -->
+    <script>
+    (function() {
+        if (document.documentElement.classList.contains('xmas-off')) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        // Création du canvas de neige
+        var canvas = document.createElement('canvas');
+        canvas.id = 'xmas-snow-canvas';
+        canvas.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(canvas);
+
+        var ctx = canvas.getContext('2d');
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var width = 0, height = 0;
+        var flakes = [];
+        var animId = null;
+        var isVisible = true;
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // Nombre de flocons adapté à l'écran (~40 sur mobile, ~85 sur grand écran)
+            var count = Math.round(Math.min(85, Math.max(35, width / 20)));
+            flakes = [];
+            for (var i = 0; i < count; i++) {
+                flakes.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    r: Math.random() * 2.2 + 0.8,
+                    speedY: Math.random() * 0.85 + 0.4,
+                    speedX: (Math.random() - 0.5) * 0.4,
+                    angle: Math.random() * Math.PI * 2,
+                    angleSpeed: Math.random() * 0.015 + 0.005,
+                    opacity: Math.random() * 0.5 + 0.35,
+                    isGold: Math.random() < 0.25
+                });
+            }
+        }
+
+        resize();
+        window.addEventListener('resize', resize, { passive: true });
+
+        function draw() {
+            if (!isVisible || document.body.classList.contains('xmas-disabled')) {
+                animId = requestAnimationFrame(draw);
+                return;
+            }
+
+            ctx.clearRect(0, 0, width, height);
+
+            for (var i = 0; i < flakes.length; i++) {
+                var f = flakes[i];
+                f.angle += f.angleSpeed;
+                f.y += f.speedY;
+                f.x += f.speedX + Math.sin(f.angle) * 0.5;
+
+                // Si le flocon sort par le bas, le replacer en haut
+                if (f.y > height + 5) {
+                    f.y = -5;
+                    f.x = Math.random() * width;
+                }
+                if (f.x > width + 5) f.x = -5;
+                else if (f.x < -5) f.x = width + 5;
+
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+                if (f.isGold) {
+                    ctx.fillStyle = 'rgba(245, 208, 97, ' + f.opacity + ')';
+                } else {
+                    ctx.fillStyle = 'rgba(255, 255, 255, ' + f.opacity + ')';
+                }
+                ctx.fill();
+            }
+
+            animId = requestAnimationFrame(draw);
+        }
+
+        animId = requestAnimationFrame(draw);
+
+        // Pause quand l'onglet n'est pas actif (économie batterie)
+        document.addEventListener('visibilitychange', function() {
+            isVisible = !document.hidden;
+        });
+
+        // Interrupteur ON / OFF ambiance Fin d'année
+        var xmasBtn = document.getElementById('xmas-toggle-btn');
+        if (xmasBtn) {
+            var isXmasDisabled = localStorage.getItem('barber_xmas_disabled') === '1';
+            if (isXmasDisabled) {
+                document.body.classList.add('xmas-disabled');
+                xmasBtn.title = "Activer l'ambiance Fin d'année";
+            }
+
+            xmasBtn.addEventListener('click', function() {
+                var disabled = document.body.classList.toggle('xmas-disabled');
+                localStorage.setItem('barber_xmas_disabled', disabled ? '1' : '0');
+                xmasBtn.title = disabled ? "Activer l'ambiance Fin d'année" : "Désactiver l'ambiance Fin d'année";
+                if (typeof showToast === 'function') {
+                    showToast(disabled ? "Ambiance de fin d'année désactivée ❄️" : "Ambiance de fin d'année activée ✨");
+                }
+            });
+        }
     })();
     </script>
     <!-- 📲 Installer l'appli (PWA) -->

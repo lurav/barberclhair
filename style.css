@@ -3909,10 +3909,16 @@ img {
 }
 
 /* ==========================================================================
-   HORS SAISON HALLOWEEN
+   HORS SAISON HALLOWEEN & FIN D'ANNÉE
    ========================================================================== */
 .hw-off .hw-edition-badge,
 .hw-off #hw-toggle-btn {
+    display: none !important;
+}
+
+.xmas-off .xmas-edition-badge,
+.xmas-off #xmas-toggle-btn,
+.xmas-off #xmas-snow-canvas {
     display: none !important;
 }
 
