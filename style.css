@@ -1483,6 +1483,309 @@ img {
     color: #ff6b6b;
 }
 
+/* ==========================================================================
+   Module Retrouver mon RDV (par téléphone)
+   ========================================================================== */
+.booking-lookup-wrapper {
+    margin-bottom: 1.5rem;
+}
+
+.btn-lookup-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1.25rem;
+    background: rgba(229, 169, 59, 0.08);
+    border: 1px solid rgba(229, 169, 59, 0.35);
+    border-radius: var(--radius-md);
+    color: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+}
+
+.btn-lookup-toggle:hover {
+    background: rgba(229, 169, 59, 0.16);
+    border-color: var(--accent-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(229, 169, 59, 0.2);
+}
+
+.btn-lookup-toggle strong {
+    color: var(--accent-gold);
+}
+
+.btn-lookup-toggle svg {
+    width: 18px;
+    height: 18px;
+    color: var(--accent-gold);
+    flex-shrink: 0;
+}
+
+.lookup-toggle-arrow {
+    margin-left: auto;
+    transition: transform 0.25s ease;
+}
+
+.btn-lookup-toggle[aria-expanded="true"] .lookup-toggle-arrow {
+    transform: rotate(180deg);
+}
+
+.booking-lookup-card {
+    background: linear-gradient(135deg, rgba(25, 25, 25, 0.98), rgba(15, 15, 15, 0.98));
+    border: 1px solid rgba(229, 169, 59, 0.45);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    margin-top: 0.75rem;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    animation: fadeInSlide 0.25s ease-out;
+}
+
+@keyframes fadeInSlide {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.lookup-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.lookup-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--accent-gold);
+    font-weight: 700;
+    font-size: 1.05rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.lookup-card-title svg {
+    width: 18px;
+    height: 18px;
+}
+
+.lookup-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    transition: color 0.2s ease;
+}
+
+.lookup-close-btn:hover {
+    color: #fff;
+}
+
+.lookup-card-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-light);
+    margin-bottom: 1.25rem;
+    line-height: 1.45;
+}
+
+.lookup-input-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.lookup-input-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+}
+
+.lookup-input-icon {
+    position: absolute;
+    left: 0.95rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 17px;
+    height: 17px;
+    color: var(--accent-gold);
+    pointer-events: none;
+}
+
+.lookup-input-wrapper input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 2.6rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 1rem;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+}
+
+.lookup-input-wrapper input:focus {
+    outline: none;
+    border-color: var(--accent-gold);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(229, 169, 59, 0.18);
+}
+
+.lookup-input-group .btn {
+    padding: 0.75rem 1.35rem;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.lookup-result-box {
+    margin-top: 1.25rem;
+    animation: fadeInSlide 0.2s ease-out;
+}
+
+/* Carte RDV trouvé */
+.lookup-found-card {
+    background: rgba(229, 169, 59, 0.07);
+    border: 1px solid rgba(229, 169, 59, 0.45);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem;
+}
+
+.lookup-found-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #4cd964;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.5rem;
+}
+
+.lookup-found-badge svg {
+    width: 15px;
+    height: 15px;
+}
+
+.lookup-found-time {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 0.4rem 0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.lookup-found-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1.1rem;
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.lookup-detail-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lookup-detail-row svg {
+    width: 14px;
+    height: 14px;
+    color: var(--accent-gold);
+    flex-shrink: 0;
+}
+
+.lookup-detail-row strong {
+    color: #fff;
+}
+
+.lookup-found-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.75rem;
+}
+
+.lookup-found-actions .btn {
+    font-size: 0.82rem;
+    padding: 0.55rem 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.lookup-found-actions .btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Message aucun RDV trouvé */
+.lookup-empty-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.lookup-empty-box svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent-gold);
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+}
+
+.lookup-empty-text {
+    font-size: 0.88rem;
+    color: var(--text-light);
+    line-height: 1.45;
+}
+
+.lookup-empty-text strong {
+    color: #fff;
+}
+
+.lookup-empty-text a {
+    color: var(--accent-gold);
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .lookup-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .lookup-input-group .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    .lookup-found-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .lookup-found-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 .time-slots {
     border-top: 1px solid var(--border-subtle);
     padding-top: 2rem;

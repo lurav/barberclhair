@@ -609,15 +609,34 @@ function startBookingsListener() {
                     const data = doc.data();
                     if (!data || !data.time || !data.date) return;
 
-                    // Verrou cross-device de numéro de téléphone (anonymisé par SHA-256)
+                    // Verrou cross-device de numéro de téléphone (anonymisé par SHA-256) avec métadonnées client
                     if (doc.id.includes('_phone_') || (data.barber && String(data.barber).startsWith('phone_'))) {
-                        const pHash = (data.barber && String(data.barber).startsWith('phone_'))
-                            ? String(data.barber).replace('phone_', '')
-                            : doc.id.split('_phone_')[1];
+                        let pHash = '';
+                        let barberId = 'isma';
+                        let service = 'Coupe';
+                        let clientName = '';
+                        const barberStr = String(data.barber || '');
+                        if (barberStr.includes('|')) {
+                            const parts = barberStr.split('|');
+                            pHash = parts[0].replace('phone_', '');
+                            barberId = parts[1] || 'isma';
+                            try { service = decodeURIComponent(parts[2] || ''); } catch (e) { service = parts[2] || 'Coupe'; }
+                            try { clientName = decodeURIComponent(parts[3] || ''); } catch (e) { clientName = parts[3] || ''; }
+                        } else if (barberStr.startsWith('phone_')) {
+                            pHash = barberStr.replace('phone_', '');
+                        } else if (doc.id.includes('_phone_')) {
+                            pHash = doc.id.split('_phone_')[1];
+                        }
                         if (pHash && !isBookingPast(data.date, data.time)) {
+                            const [py, pm, pd] = data.date.split('-').map(Number);
                             activePhoneBookings.set(pHash, {
                                 date: data.date,
+                                dateFull: formatDateFull(new Date(py, pm - 1, pd)),
                                 time: data.time,
+                                barberId: barberId,
+                                barberName: getBarberName(barberId),
+                                service: service || 'Coupe',
+                                clientName: clientName,
                                 docId: doc.id
                             });
                         }
@@ -957,7 +976,24 @@ if (bookingForm) {
         if (existingBooking && (!authUser || !authUser.email)) {
             const [ey, em, ed] = existingBooking.date.split('-').map(Number);
             const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existingBooking.time}`;
-            showBookingError(`Ce numéro de téléphone (${phoneVal}) a déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est autorisé sur le site et l'application. Pour le modifier ou l'annuler, contactez le salon au 07 49 15 38 55.`);
+            const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier mon rendez-vous du ${when}.`;
+            showBookingError(`
+                <div style="font-weight: 700; margin-bottom: 0.35rem; color: #ffb8b8;">
+                    ⚠️ Vous avez déjà un rendez-vous réservé le ${when} !
+                </div>
+                <div style="font-size: 0.82rem; margin-bottom: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
+                    ${escapeHtml(existingBooking.service || 'Coupe')} avec ${escapeHtml(existingBooking.barberName || 'votre coiffeur')}.<br>
+                    Un seul rendez-vous à la fois est autorisé sur le site et l'application.
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <a href="https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                        Modifier / Annuler via WhatsApp
+                    </a>
+                    <a href="tel:0749153855" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                        Appeler le salon
+                    </a>
+                </div>
+            `, true);
             resetSubmitBtn();
             return;
         }
@@ -1067,14 +1103,26 @@ if (bookingForm) {
                     await slotRef.set(slotPayload);
                     bookingRef.set(bookingPayload).catch(e => console.warn('Booking salon privé :', e));
 
-                    // Verrou cross-device du numéro de téléphone (anonymisé par SHA-256)
+                    // Verrou cross-device du numéro de téléphone (anonymisé par SHA-256) avec métadonnées client
                     if (phoneHash) {
                         const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
+                        const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal) + '|' + encodeURIComponent(nameVal);
                         db.collection('slots').doc(phoneDocId).set({
                             date: currentSlotForBooking.dateIso,
                             time: currentSlotForBooking.time,
-                            barber: 'phone_' + phoneHash
+                            barber: phoneBarberMeta
                         }).catch(e => console.warn('Phone lock slot :', e));
+
+                        activePhoneBookings.set(phoneHash, {
+                            date: currentSlotForBooking.dateIso,
+                            dateFull: currentSlotForBooking.dateFull,
+                            time: currentSlotForBooking.time,
+                            barberId: barber.id,
+                            barberName: barber.name,
+                            service: serviceVal,
+                            clientName: nameVal,
+                            docId: phoneDocId
+                        });
                     }
                     return true;
                 } catch (dbErr) {
@@ -1091,11 +1139,23 @@ if (bookingForm) {
             fsCreateDocIn('bookings', docId, bookingPayload, 4000).catch(e => console.warn('Booking salon privé REST :', e));
             if (phoneHash) {
                 const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
+                const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal) + '|' + encodeURIComponent(nameVal);
                 fsCreateDocIn('slots', phoneDocId, {
                     date: currentSlotForBooking.dateIso,
                     time: currentSlotForBooking.time,
-                    barber: 'phone_' + phoneHash
+                    barber: phoneBarberMeta
                 }, 4000).catch(() => {});
+
+                activePhoneBookings.set(phoneHash, {
+                    date: currentSlotForBooking.dateIso,
+                    dateFull: currentSlotForBooking.dateFull,
+                    time: currentSlotForBooking.time,
+                    barberId: barber.id,
+                    barberName: barber.name,
+                    service: serviceVal,
+                    clientName: nameVal,
+                    docId: phoneDocId
+                });
             }
             return true;
         };
@@ -1297,7 +1357,16 @@ async function checkPhoneHasActiveBooking(phoneVal) {
     // 2. Vérification locale sur cet appareil (au cas où le cache réseau tarde)
     const local = getActiveClientBooking();
     if (local && (local.clientPhoneNorm === phoneNorm || !phoneVal) && !isBookingPast(local.dateIso, local.time)) {
-        return { date: local.dateIso, time: local.time };
+        return {
+            date: local.dateIso,
+            dateFull: local.dateFull,
+            time: local.time,
+            barberId: local.barberId || 'isma',
+            barberName: local.barberName || 'Isma',
+            service: local.service || 'Coupe',
+            clientName: local.clientName || '',
+            docId: local.docId || ''
+        };
     }
 
     return null;
@@ -1362,10 +1431,15 @@ document.addEventListener('click', (e) => {
     }
 });
 
-function showBookingError(msg) {
+function showBookingError(msg, isHtml = false) {
     if (bookingError) {
-        bookingError.textContent = msg;
+        if (isHtml) {
+            bookingError.innerHTML = msg;
+        } else {
+            bookingError.textContent = msg;
+        }
         bookingError.style.display = 'block';
+        if (window.feather) feather.replace();
     }
 }
 
@@ -1400,10 +1474,32 @@ if (bookingPhoneInput) {
                 if (existing) {
                     const [ey, em, ed] = existing.date.split('-').map(Number);
                     const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existing.time}`;
-                    showBookingError(`Ce numéro a déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est autorisé.`);
+                    const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier mon rendez-vous du ${when}.`;
+                    showBookingError(`
+                        <div style="font-weight: 700; margin-bottom: 0.35rem; color: #ffb8b8;">
+                            ⚠️ Vous avez déjà un rendez-vous réservé le ${when} !
+                        </div>
+                        <div style="font-size: 0.82rem; margin-bottom: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
+                            ${escapeHtml(existing.service || 'Coupe')} avec ${escapeHtml(existing.barberName || 'votre coiffeur')}.<br>
+                            Un seul rendez-vous à la fois est autorisé sur le site et l'application.
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <a href="https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                                Modifier / Annuler via WhatsApp
+                            </a>
+                            <a href="tel:0749153855" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                                Appeler le salon
+                            </a>
+                        </div>
+                    `, true);
+                    const submitBtn = document.getElementById('btn-submit-booking');
+                    if (submitBtn) submitBtn.disabled = true;
                 } else {
-                    if (bookingError && bookingError.textContent.includes('a déjà un rendez-vous')) {
+                    if (bookingError && bookingError.innerHTML.includes('Vous avez déjà un rendez-vous')) {
                         bookingError.style.display = 'none';
+                        bookingError.innerHTML = '';
+                        const submitBtn = document.getElementById('btn-submit-booking');
+                        if (submitBtn) submitBtn.disabled = false;
                     }
                 }
             }).catch(() => {});
@@ -1411,28 +1507,85 @@ if (bookingPhoneInput) {
     });
 }
 
-// Configuration du bouton Agenda Téléphone (Apple Agenda / Google Calendar / Android) avec rappel 1h avant
-function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
+// Export Calendrier (Google Calendar, Apple Agenda .ics, Android)
+function triggerCalendarExport(dateIso, time, service, clientName, barberName) {
     if (!dateIso || !time) return;
     const [year, month, day] = dateIso.split('-').map(Number);
     const [hour, min] = time.split(':').map(Number);
 
     const startDate = new Date(year, month - 1, day, hour, min, 0);
-    const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // Durée 30 min
+    const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // 30 min
 
     const pad = (n) => String(n).padStart(2, '0');
-    // Format UTC pour Google Calendar et iCalendar standard
     const formatCalDateUTC = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
 
     const startUtcStr = formatCalDateUTC(startDate);
     const endUtcStr = formatCalDateUTC(endDate);
 
     const barberLine = barberName ? `Coiffeur : ${barberName}` : '';
-    const title = `Barber C L'Hair — Forfait : ${service}`;
+    const title = `Barber C L'Hair — ${service || 'Coupe'}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
-    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service}\n${barberLine ? barberLine + '\n' : ''}Client : ${clientName}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
-    const descICS = `Rendez-vous Barber C L'Hair\\nForfait : ${service}\\n${barberLine ? barberLine + '\\n' : ''}Client : ${clientName}\\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\\nTél : 07 49 15 38 55`;
+    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service || 'Coupe'}\n${barberLine ? barberLine + '\n' : ''}Client : ${clientName || 'Client'}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
 
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+
+    if (isAndroid) {
+        window.location.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startUtcStr}/${endUtcStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
+        return;
+    }
+
+    if (isIOS) {
+        const params = new URLSearchParams({ start: startUtcStr, end: endUtcStr, title, desc: descPlain, loc: location });
+        window.location.href = `/api/ics?${params.toString()}`;
+        return;
+    }
+
+    // Ordinateur : téléchargement du fichier .ics
+    const icsEsc = (s) => String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+    const icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Barber C L\'Hair//FR',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:barber-${Date.now()}@barberclhair.fr`,
+        `DTSTAMP:${formatCalDateUTC(new Date())}`,
+        `DTSTART:${startUtcStr}`,
+        `DTEND:${endUtcStr}`,
+        `SUMMARY:${icsEsc(title)}`,
+        `DESCRIPTION:${icsEsc(descPlain)}`,
+        `LOCATION:${icsEsc(location)}`,
+        'STATUS:CONFIRMED',
+        'BEGIN:VALARM',
+        'TRIGGER:-PT2H',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 2h',
+        'END:VALARM',
+        'BEGIN:VALARM',
+        'TRIGGER:-PT1H',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 1h',
+        'END:VALARM',
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Configuration du bouton Agenda Téléphone (Apple Agenda / Google Calendar / Android) avec rappel 1h avant
+function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
     const calBtn = document.getElementById('btn-add-calendar');
     const calText = document.getElementById('btn-add-calendar-text');
     if (!calBtn) return;
@@ -1442,70 +1595,236 @@ function setupCalendarButtons(dateIso, time, service, clientName, barberName) {
 
     calBtn.onclick = (e) => {
         if (e) e.preventDefault();
-
         if (calText) calText.textContent = '✓ Alerte enregistrée sur votre téléphone !';
         calBtn.classList.add('btn-reminder-done');
-
-        const ua = navigator.userAgent || '';
-        const isAndroid = /Android/i.test(ua);
-        // iPadOS se présente comme un Mac : on détecte l'écran tactile
-        const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
-
-        if (isAndroid) {
-            // Google Agenda (même onglet : pas bloqué par l'anti-popup)
-            window.location.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startUtcStr}/${endUtcStr}&details=${encodeURIComponent(descPlain)}&location=${encodeURIComponent(location)}`;
-            return;
-        }
-
-        if (isIOS) {
-            // Vrai fichier .ics servi par le serveur -> « Ajouter au calendrier » d'Apple
-            const params = new URLSearchParams({ start: startUtcStr, end: endUtcStr, title, desc: descPlain, loc: location });
-            window.location.href = `/api/ics?${params.toString()}`;
-            return;
-        }
-
-        // Ordinateur : téléchargement du fichier .ics
-        const icsEsc = (s) => String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
-        const icsContent = [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//Barber C L\'Hair//FR',
-            'CALSCALE:GREGORIAN',
-            'METHOD:PUBLISH',
-            'BEGIN:VEVENT',
-            `UID:barber-${Date.now()}@barberclhair.fr`,
-            `DTSTAMP:${formatCalDateUTC(new Date())}`,
-            `DTSTART:${startUtcStr}`,
-            `DTEND:${endUtcStr}`,
-            `SUMMARY:${icsEsc(title)}`,
-            `DESCRIPTION:${icsEsc(descPlain)}`,
-            `LOCATION:${icsEsc(location)}`,
-            'STATUS:CONFIRMED',
-            'BEGIN:VALARM',
-            'TRIGGER:-PT2H',
-            'ACTION:DISPLAY',
-            'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 2h',
-            'END:VALARM',
-            'BEGIN:VALARM',
-            'TRIGGER:-PT1H',
-            'ACTION:DISPLAY',
-            'DESCRIPTION:Rappel RDV Barber C L\'Hair dans 1h',
-            'END:VALARM',
-            'END:VEVENT',
-            'END:VCALENDAR'
-        ].join('\r\n');
-        void descICS;
-
-        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `rdv-barber-c-l-hair-${dateIso}.ics`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        triggerCalendarExport(dateIso, time, service, clientName, barberName);
     };
+}
+
+// ==========================================================================
+// Module Retrouver mon rendez-vous (par téléphone)
+// ==========================================================================
+function initBookingLookup() {
+    const toggleBtn = document.getElementById('btn-toggle-lookup');
+    const lookupCard = document.getElementById('booking-lookup-card');
+    const closeBtn = document.getElementById('lookup-close-btn');
+    const phoneInput = document.getElementById('lookup-phone-input');
+    const doLookupBtn = document.getElementById('btn-do-lookup');
+    const resultBox = document.getElementById('lookup-result-box');
+
+    if (!toggleBtn || !lookupCard || !phoneInput) return;
+
+    const toggleOpen = (show) => {
+        const isCurrentlyOpen = lookupCard.style.display !== 'none';
+        const willOpen = (typeof show === 'boolean') ? show : !isCurrentlyOpen;
+        lookupCard.style.display = willOpen ? 'block' : 'none';
+        toggleBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) {
+            // Si l'utilisateur a déjà un rendez-vous mémorisé sur cet appareil, préremplir son numéro
+            const local = getActiveClientBooking();
+            if (local && local.clientPhoneNorm && !phoneInput.value.trim()) {
+                const p = local.clientPhoneNorm;
+                if (p.length === 10) {
+                    phoneInput.value = `${p.slice(0, 2)} ${p.slice(2, 4)} ${p.slice(4, 6)} ${p.slice(6, 8)} ${p.slice(8, 10)}`;
+                } else {
+                    phoneInput.value = p;
+                }
+                performLookup();
+            } else {
+                phoneInput.focus();
+            }
+        }
+    };
+
+    toggleBtn.addEventListener('click', () => toggleOpen());
+    if (closeBtn) closeBtn.addEventListener('click', () => toggleOpen(false));
+
+    // Formatage automatique du numéro en direct dans le champ de recherche
+    phoneInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const isInternational = val.trim().startsWith('+');
+        const digits = val.replace(/\D/g, '');
+
+        if (isInternational && digits.startsWith('33')) {
+            const num = digits.substring(2, 11);
+            let formatted = '+33';
+            if (num.length > 0) formatted += ' ' + num.substring(0, 1);
+            if (num.length > 1) formatted += ' ' + num.substring(1, 3);
+            if (num.length > 3) formatted += ' ' + num.substring(3, 5);
+            if (num.length > 5) formatted += ' ' + num.substring(5, 7);
+            if (num.length > 7) formatted += ' ' + num.substring(7, 9);
+            e.target.value = formatted;
+        } else {
+            const num = digits.substring(0, 10);
+            const chunks = [];
+            for (let i = 0; i < num.length; i += 2) {
+                chunks.push(num.substring(i, i + 2));
+            }
+            e.target.value = chunks.join(' ');
+        }
+
+        // Si le client a tapé ses 10 chiffres, recherche automatique instantanée
+        if (digits.length >= 10) {
+            performLookup();
+        } else if (resultBox) {
+            resultBox.style.display = 'none';
+            resultBox.innerHTML = '';
+        }
+    });
+
+    phoneInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            performLookup();
+        }
+    });
+
+    if (doLookupBtn) {
+        doLookupBtn.addEventListener('click', () => performLookup());
+    }
+
+    async function performLookup() {
+        if (!resultBox) return;
+        const rawVal = phoneInput.value.trim();
+        const digits = rawVal.replace(/\D/g, '');
+
+        if (digits.length < 10) {
+            resultBox.innerHTML = `
+                <div class="lookup-empty-box">
+                    <i data-feather="alert-circle"></i>
+                    <div class="lookup-empty-text">
+                        Veuillez saisir un numéro de téléphone valide à 10 chiffres (ex : 06 12 34 56 78).
+                    </div>
+                </div>
+            `;
+            resultBox.style.display = 'block';
+            if (window.feather) feather.replace();
+            return;
+        }
+
+        const phoneNorm = normalizePhone(rawVal);
+        const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
+
+        // 1. Recherche dans activePhoneBookings (en mémoire Firestore 0ms)
+        let booking = activePhoneBookings.get(phoneHash);
+
+        // 2. Si non trouvé en mémoire, vérifier la réservation enregistrée sur cet appareil
+        if (!booking) {
+            const local = getActiveClientBooking();
+            if (local && (local.clientPhoneNorm === phoneNorm) && !isBookingPast(local.dateIso, local.time)) {
+                booking = {
+                    date: local.dateIso,
+                    dateFull: local.dateFull,
+                    time: local.time,
+                    barberId: local.barberId || 'isma',
+                    barberName: local.barberName || 'Isma',
+                    service: local.service || 'Coupe',
+                    clientName: local.clientName || '',
+                    docId: local.docId || ''
+                };
+            }
+        }
+
+        // 3. Secours requête directe Firestore dans /slots si disponible
+        if (!booking && db) {
+            try {
+                const snap = await db.collection('slots')
+                    .where('date', '>=', formatDateISO(new Date()))
+                    .get();
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    if (!d || !d.date || !d.time) return;
+                    if (doc.id.includes('_phone_' + phoneHash) || (d.barber && String(d.barber).includes(phoneHash))) {
+                        let bId = 'isma';
+                        let serv = 'Coupe';
+                        let cName = '';
+                        const bStr = String(d.barber || '');
+                        if (bStr.includes('|')) {
+                            const parts = bStr.split('|');
+                            bId = parts[1] || 'isma';
+                            try { serv = decodeURIComponent(parts[2] || ''); } catch (e) { serv = parts[2]; }
+                            try { cName = decodeURIComponent(parts[3] || ''); } catch (e) { cName = parts[3]; }
+                        }
+                        if (!isBookingPast(d.date, d.time)) {
+                            const [y, m, day] = d.date.split('-').map(Number);
+                            booking = {
+                                date: d.date,
+                                dateFull: formatDateFull(new Date(y, m - 1, day)),
+                                time: d.time,
+                                barberId: bId,
+                                barberName: getBarberName(bId),
+                                service: serv || 'Coupe',
+                                clientName: cName,
+                                docId: doc.id
+                            };
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn("Direct slots lookup :", e);
+            }
+        }
+
+        if (booking && !isBookingPast(booking.date, booking.time)) {
+            const waMsg = `Bonjour Barber C L'Hair, je vous contacte concernant mon rendez-vous du ${booking.dateFull} à ${booking.time}${booking.clientName ? ' (' + booking.clientName + ')' : ''}.`;
+            resultBox.innerHTML = `
+                <div class="lookup-found-card">
+                    <div class="lookup-found-badge">
+                        <i data-feather="check-circle"></i>
+                        <span>Rendez-vous confirmé</span>
+                    </div>
+                    <h4 class="lookup-found-time">${escapeHtml(booking.dateFull)} à ${escapeHtml(booking.time)}</h4>
+                    <div class="lookup-found-details">
+                        <div class="lookup-detail-row">
+                            <i data-feather="scissors"></i>
+                            <span>Prestation : <strong>${escapeHtml(booking.service)}</strong> avec <strong>${escapeHtml(booking.barberName)}</strong></span>
+                        </div>
+                        ${booking.clientName ? `
+                        <div class="lookup-detail-row">
+                            <i data-feather="user"></i>
+                            <span>Client : <strong>${escapeHtml(booking.clientName)}</strong></span>
+                        </div>` : ''}
+                        <div class="lookup-detail-row">
+                            <i data-feather="map-pin"></i>
+                            <span>Salon : <strong>Barber C L'Hair — 33 Rue de l'Hôtel de Ville, 59620 Aulnoye-Aymeries</strong></span>
+                        </div>
+                    </div>
+                    <div class="lookup-found-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-lookup-add-cal">
+                            <i data-feather="calendar"></i> Ajouter à mon agenda
+                        </button>
+                        <a href="https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}" class="btn btn-outline btn-sm" target="_blank" rel="noopener">
+                            <i data-feather="message-circle"></i> Modifier / Annuler (WhatsApp)
+                        </a>
+                        <a href="tel:0749153855" class="btn btn-outline btn-sm">
+                            <i data-feather="phone"></i> 07 49 15 38 55
+                        </a>
+                        <a href="https://maps.google.com/?q=Barber+C+L'Hair+33+rue+de+l'hotel+de+ville+59620+Aulnoye-Aymeries" class="btn btn-outline btn-sm" target="_blank" rel="noopener">
+                            <i data-feather="navigation"></i> Itinéraire GPS
+                        </a>
+                    </div>
+                </div>
+            `;
+            const calBtn = resultBox.querySelector('#btn-lookup-add-cal');
+            if (calBtn) {
+                calBtn.addEventListener('click', () => {
+                    triggerCalendarExport(booking.date, booking.time, booking.service, booking.clientName, booking.barberName);
+                });
+            }
+        } else {
+            resultBox.innerHTML = `
+                <div class="lookup-empty-box">
+                    <i data-feather="info"></i>
+                    <div class="lookup-empty-text">
+                        Aucun rendez-vous à venir trouvé pour le numéro <strong>${escapeHtml(phoneInput.value)}</strong>.<br>
+                        Vous n'avez pas encore réservé ? Choisissez votre créneau ci-dessous dans le calendrier !
+                    </div>
+                </div>
+            `;
+        }
+        resultBox.style.display = 'block';
+        if (window.feather) feather.replace();
+    }
 }
 
 // ---- Fonctions Rappels SMS & WhatsApp pour le Salon ----
@@ -1850,10 +2169,11 @@ async function showAdminPlanning() {
                         if (pNorm) {
                             const pHash = (await sha256Hex(pNorm)).slice(0, 32);
                             const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
+                            const pBarberMeta = 'phone_' + pHash + '|' + (b.barberId || 'isma') + '|' + encodeURIComponent(b.service || 'Coupe') + '|' + encodeURIComponent(b.clientName || '');
                             batch.set(db.collection('slots').doc(pDocId), {
                                 date: b.date,
                                 time: b.time,
-                                barber: 'phone_' + pHash
+                                barber: pBarberMeta
                             }, { merge: true });
                             hasBatch = true;
                         }
@@ -2238,6 +2558,7 @@ function initCalendar() {
     renderCalendarDays();
     renderActiveBookingBanner();
     loadSlotsForSelectedDate();
+    initBookingLookup();
 }
 
 if (document.readyState === 'loading') {
