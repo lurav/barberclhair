@@ -657,6 +657,18 @@ function startBookingsListener() {
                 renderCalendarDays();
                 renderActiveBookingBanner();
                 renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
+
+                // Anti-collision temps réel : si l'utilisateur est en train de remplir la réservation pour un créneau qui vient d'être pris par un autre client
+                if (bookingModal && bookingModal.classList.contains('show') && currentSlotForBooking) {
+                    const dayMap = bookingsCache.get(currentSlotForBooking.dateIso) || new Map();
+                    if (isSlotTaken(currentSlotForBooking.time, dayMap, currentSlotForBooking.barberChoice)) {
+                        showBookingError("⚠️ Ce créneau vient tout juste d'être réservé par un autre client à l'instant ! Veuillez fermer cette fenêtre et choisir un autre créneau dans le calendrier.");
+                        if (btnSubmitBooking) {
+                            btnSubmitBooking.disabled = true;
+                            if (btnSubmitText) btnSubmitText.textContent = "Créneau déjà réservé";
+                        }
+                    }
+                }
             }, (error) => {
                 console.warn("Écouteur slots :", error);
                 unsubscribeBookings = null;
@@ -790,9 +802,9 @@ const btnSubmitText = document.getElementById('btn-submit-text');
 function openBookingModal(time) {
     if (!bookingModal) return;
 
-    // Règle stricte : 1 seul rendez-vous à la fois sur le site et l'application (hors salon connecté)
+    // Règle stricte : 1 seul rendez-vous à la fois sur le site et l'application
     const activeBooking = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
-    if (activeBooking && (!authUser || !authUser.email)) {
+    if (activeBooking) {
         alert(`Vous avez déjà un rendez-vous réservé le ${activeBooking.dateFull} à ${activeBooking.time} (${activeBooking.service} avec ${activeBooking.barberName}).\n\nPour le confort de tous les clients, un seul rendez-vous à la fois est autorisé sur le site et l'application.\n\nPour modifier ou annuler votre réservation, contactez le salon au 07 49 15 38 55 ou par WhatsApp.`);
         if (typeof renderActiveBookingBanner === 'function') renderActiveBookingBanner();
         const banner = document.getElementById('active-booking-banner');
@@ -800,6 +812,14 @@ function openBookingModal(time) {
             banner.style.display = 'block';
             banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+        return;
+    }
+
+    // Vérification immédiate anti-collision : le créneau est-il déjà pris ?
+    const latestMap = bookingsCache.get(formatDateISO(selectedDate)) || currentBookedMap;
+    if (isSlotTaken(time, latestMap, selectedBarber)) {
+        alert("Désolé, ce créneau vient tout juste d'être réservé par un autre client. Veuillez en choisir un autre.");
+        renderSlots(latestMap);
         return;
     }
 
@@ -1007,7 +1027,7 @@ if (bookingForm) {
             if (b) candidates = [b];
         }
 
-        const slotTakenMsg = "Désolé, ce créneau vient d'être réservé. Veuillez choisir un autre horaire ou un autre coiffeur.";
+        const slotTakenMsg = "Désolé, ce créneau vient tout juste d'être réservé par un autre client à l'instant. Veuillez choisir un autre horaire ou un autre jour dans le calendrier.";
         if (candidates.length === 0) {
             showBookingError(slotTakenMsg);
             resetSubmitBtn();
@@ -1070,7 +1090,7 @@ if (bookingForm) {
             }, 800);
         };
 
-        // Enregistrement ultra-rapide et atomique (~100ms)
+        // Enregistrement atomique Firebase garanti sans doublon (Transaction ACID)
         const SLOT_TAKEN = 'SLOT_TAKEN';
         const tryBook = async (barber) => {
             const docId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${barber.id}`;
@@ -1092,28 +1112,44 @@ if (bookingForm) {
                 createdAt: new Date().toISOString()
             };
 
-            // 1. Enregistrement direct via SDK Firebase (ultra-rapide ~50-150ms)
+            // 1. Transaction atomique Firebase (Garantie anti-collision absolue : impossible que 2 personnes réservent le même créneau)
             if (db) {
                 try {
                     const slotRef = db.collection('slots').doc(docId);
                     const bookingRef = db.collection('bookings').doc(docId);
-                    await slotRef.set(slotPayload);
-                    bookingRef.set(bookingPayload).catch(e => console.warn('Booking salon privé :', e));
+                    const phoneDocId = phoneHash ? `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}` : null;
+                    const phoneRef = phoneDocId ? db.collection('slots').doc(phoneDocId) : null;
+                    const phoneBarberMeta = phoneHash ? ('phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal)) : null;
 
-                    // Verrou cross-device du numéro de téléphone (anonymisé par SHA-256) avec date, heure et prestation (zéro donnée personnelle)
-                    if (phoneHash) {
-                        const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
-                        const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
-                        try {
-                            await db.collection('slots').doc(phoneDocId).set({
+                    await db.runTransaction(async (transaction) => {
+                        // 1.1 Vérification de l'existence réelle du créneau en base (autorité serveur)
+                        const slotDoc = await transaction.get(slotRef);
+                        if (slotDoc.exists) {
+                            throw new Error(SLOT_TAKEN);
+                        }
+
+                        // 1.2 Vérification du verrou téléphone s'il existe
+                        if (phoneRef) {
+                            const phoneDoc = await transaction.get(phoneRef);
+                            if (phoneDoc.exists) {
+                                throw new Error('PHONE_ALREADY_HAS_BOOKING');
+                            }
+                        }
+
+                        // 1.3 Écritures atomiques simultanées dans la même transaction
+                        transaction.set(slotRef, slotPayload);
+                        transaction.set(bookingRef, bookingPayload);
+                        if (phoneRef) {
+                            transaction.set(phoneRef, {
                                 date: currentSlotForBooking.dateIso,
                                 time: currentSlotForBooking.time,
                                 barber: phoneBarberMeta
                             });
-                        } catch (e) {
-                            console.warn('Phone lock slot :', e);
                         }
+                    });
 
+                    // Mise à jour de la mémoire locale
+                    if (phoneHash && phoneDocId) {
                         activePhoneBookings.set(phoneHash, {
                             date: currentSlotForBooking.dateIso,
                             dateFull: currentSlotForBooking.dateFull,
@@ -1126,17 +1162,20 @@ if (bookingForm) {
                     }
                     return true;
                 } catch (dbErr) {
+                    if (dbErr && (dbErr.message === SLOT_TAKEN || dbErr.message === 'PHONE_ALREADY_HAS_BOOKING')) {
+                        throw dbErr;
+                    }
                     if (dbErr && (dbErr.code === 'permission-denied' || dbErr.message?.includes('permission'))) {
                         throw new Error(SLOT_TAKEN);
                     }
-                    console.warn('SDK direct en échec, bascule sur API REST :', dbErr);
+                    console.warn('Transaction directe en échec, bascule sur API REST :', dbErr);
                 }
             }
 
             // 2. Secours via API REST
             const slotOk = await fsCreateDocIn('slots', docId, slotPayload, 4000);
             if (!slotOk) throw new Error(SLOT_TAKEN);
-            fsCreateDocIn('bookings', docId, bookingPayload, 4000).catch(e => console.warn('Booking salon privé REST :', e));
+            await fsCreateDocIn('bookings', docId, bookingPayload, 4000);
             if (phoneHash) {
                 const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
                 const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
@@ -1175,6 +1214,9 @@ if (bookingForm) {
                     break;
                 } catch (err) {
                     if (err && err.message === SLOT_TAKEN) continue; // essayer le coiffeur suivant
+                    if (err && err.message === 'PHONE_ALREADY_HAS_BOOKING') {
+                        throw err;
+                    }
                     throw err;
                 }
             }
@@ -1182,6 +1224,7 @@ if (bookingForm) {
             if (!booked) {
                 showBookingError(slotTakenMsg);
                 loadSlotsForSelectedDate();
+                resetSubmitBtn();
                 return;
             }
 
@@ -1207,8 +1250,20 @@ if (bookingForm) {
             }
         } catch (err) {
             console.warn("Échec de l'enregistrement de la réservation :", err);
-            showBookingError("Connexion impossible, votre rendez-vous n'a pas été enregistré. Vérifiez votre connexion internet et réessayez, ou appelez le salon au 07 49 15 38 55.");
-        } finally {
+            if (err && err.message === 'PHONE_ALREADY_HAS_BOOKING') {
+                showBookingError(`
+                    <div style="font-weight: 700; margin-bottom: 0.35rem; color: #ffb8b8;">
+                        ⚠️ Vous avez déjà un rendez-vous réservé !
+                    </div>
+                    <div style="font-size: 0.82rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
+                        Un seul rendez-vous à la fois est autorisé sur le site et l'application.
+                    </div>
+                `, true);
+                resetSubmitBtn();
+                return;
+            }
+            showBookingError("Désolé, ce créneau vient tout juste d'être réservé par un autre client à l'instant. Veuillez choisir un autre horaire disponible.");
+            loadSlotsForSelectedDate();
             resetSubmitBtn();
         }
     });
@@ -2542,12 +2597,45 @@ async function showAdminPlanning() {
                 return;
             }
 
+            // Détection automatique des doublons / conflits d'horaires
+            const duplicateTimesSet = new Set();
+            const timeMap = new Map();
+            bookings.forEach(b => {
+                const k = `${b.time}_${b.barberId}`;
+                if (timeMap.has(k)) {
+                    duplicateTimesSet.add(b.time);
+                }
+                timeMap.set(k, true);
+            });
+
             adminBookingsList.innerHTML = '';
+
+            // Si doublons détectés, bandeau d'alerte bien visible en haut
+            if (duplicateTimesSet.size > 0) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'admin-conflict-banner';
+                alertDiv.style.cssText = 'background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 12px; padding: 0.9rem 1.15rem; margin-bottom: 1.15rem; color: #fca5a5; font-size: 0.88rem; display: flex; align-items: center; gap: 0.75rem; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15);';
+                alertDiv.innerHTML = `
+                    <i data-feather="alert-triangle" style="width: 22px; height: 22px; flex-shrink: 0; stroke: #ef4444;"></i>
+                    <div style="line-height: 1.45;">
+                        <strong style="color: #fff; display: block; margin-bottom: 0.15rem;">⚠️ Conflit d'horaire détecté !</strong>
+                        Plusieurs réservations ont été enregistrées pour le(s) même(s) créneau(x) : <strong>${Array.from(duplicateTimesSet).join(', ')}</strong>.<br>
+                        Vous pouvez contacter l'un des clients par téléphone ou WhatsApp pour décaler son horaire.
+                    </div>
+                `;
+                adminBookingsList.appendChild(alertDiv);
+            }
+
             bookings.forEach(b => {
                 const barberName = getBarberName(b.barberId);
                 const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === b.barberId));
+                const isConflict = duplicateTimesSet.has(b.time);
                 const item = document.createElement('div');
                 item.className = `admin-booking-item barber-accent-${barberIndex}`;
+                if (isConflict) {
+                    item.style.borderColor = '#ef4444';
+                    item.style.boxShadow = '0 0 16px rgba(239, 68, 68, 0.2)';
+                }
 
                 const reminderKey = `barber_reminder_sent_${b.id}`;
                 const alreadySent = !!localStorage.getItem(reminderKey);
@@ -2565,6 +2653,12 @@ async function showAdminPlanning() {
                                 <i data-feather="clock"></i>
                                 <span>${escapeHtml(b.time || '')}</span>
                             </span>
+                            ${isConflict ? `
+                                <span class="admin-booking-conflict-pill" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; padding: 0.2rem 0.55rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    <i data-feather="alert-triangle" style="width: 12px; height: 12px; stroke: #ef4444;"></i>
+                                    <span>Conflit horaire</span>
+                                </span>
+                            ` : ''}
                             <span class="admin-booking-barber-pill barber-color-${barberIndex}">
                                 <span>👤 ${escapeHtml(barberName)}</span>
                             </span>
