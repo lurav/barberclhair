@@ -609,19 +609,17 @@ function startBookingsListener() {
                     const data = doc.data();
                     if (!data || !data.time || !data.date) return;
 
-                    // Verrou cross-device de numéro de téléphone (anonymisé par SHA-256) avec métadonnées client
+                    // Verrou cross-device de numéro de téléphone (anonymisé par SHA-256) avec date, heure et prestation (zéro donnée personnelle)
                     if (doc.id.includes('_phone_') || (data.barber && String(data.barber).startsWith('phone_'))) {
                         let pHash = '';
                         let barberId = 'isma';
                         let service = 'Coupe';
-                        let clientName = '';
                         const barberStr = String(data.barber || '');
                         if (barberStr.includes('|')) {
                             const parts = barberStr.split('|');
                             pHash = parts[0].replace('phone_', '');
                             barberId = parts[1] || 'isma';
                             try { service = decodeURIComponent(parts[2] || ''); } catch (e) { service = parts[2] || 'Coupe'; }
-                            try { clientName = decodeURIComponent(parts[3] || ''); } catch (e) { clientName = parts[3] || ''; }
                         } else if (barberStr.startsWith('phone_')) {
                             pHash = barberStr.replace('phone_', '');
                         } else if (doc.id.includes('_phone_')) {
@@ -636,7 +634,6 @@ function startBookingsListener() {
                                 barberId: barberId,
                                 barberName: getBarberName(barberId),
                                 service: service || 'Coupe',
-                                clientName: clientName,
                                 docId: doc.id
                             });
                         }
@@ -982,7 +979,7 @@ if (bookingForm) {
                     ⚠️ Vous avez déjà un rendez-vous réservé le ${when} !
                 </div>
                 <div style="font-size: 0.82rem; margin-bottom: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
-                    ${escapeHtml(existingBooking.service || 'Coupe')} avec ${escapeHtml(existingBooking.barberName || 'votre coiffeur')}.<br>
+                    Prestation : <strong>${escapeHtml(existingBooking.service || 'Coupe')}</strong>.<br>
                     Un seul rendez-vous à la fois est autorisé sur le site et l'application.
                 </div>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -1103,10 +1100,10 @@ if (bookingForm) {
                     await slotRef.set(slotPayload);
                     bookingRef.set(bookingPayload).catch(e => console.warn('Booking salon privé :', e));
 
-                    // Verrou cross-device du numéro de téléphone (anonymisé par SHA-256) avec métadonnées client
+                    // Verrou cross-device du numéro de téléphone (anonymisé par SHA-256) avec date, heure et prestation (zéro donnée personnelle)
                     if (phoneHash) {
                         const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
-                        const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal) + '|' + encodeURIComponent(nameVal);
+                        const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
                         db.collection('slots').doc(phoneDocId).set({
                             date: currentSlotForBooking.dateIso,
                             time: currentSlotForBooking.time,
@@ -1120,7 +1117,6 @@ if (bookingForm) {
                             barberId: barber.id,
                             barberName: barber.name,
                             service: serviceVal,
-                            clientName: nameVal,
                             docId: phoneDocId
                         });
                     }
@@ -1139,7 +1135,7 @@ if (bookingForm) {
             fsCreateDocIn('bookings', docId, bookingPayload, 4000).catch(e => console.warn('Booking salon privé REST :', e));
             if (phoneHash) {
                 const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
-                const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal) + '|' + encodeURIComponent(nameVal);
+                const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
                 fsCreateDocIn('slots', phoneDocId, {
                     date: currentSlotForBooking.dateIso,
                     time: currentSlotForBooking.time,
@@ -1153,7 +1149,6 @@ if (bookingForm) {
                     barberId: barber.id,
                     barberName: barber.name,
                     service: serviceVal,
-                    clientName: nameVal,
                     docId: phoneDocId
                 });
             }
@@ -1389,7 +1384,7 @@ function renderActiveBookingBanner() {
         return;
     }
 
-    const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier ou annuler mon rendez-vous du ${b.dateFull} à ${b.time} (${b.clientName}).`;
+    const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier ou annuler mon rendez-vous du ${b.dateFull} à ${b.time}.`;
     banner.innerHTML = `
         <div class="active-booking-card">
             <div class="active-booking-badge">
@@ -1397,7 +1392,7 @@ function renderActiveBookingBanner() {
                 <span>Votre rendez-vous confirmé</span>
             </div>
             <h4 class="active-booking-time">${escapeHtml(b.dateFull)} à ${escapeHtml(b.time)}</h4>
-            <p class="active-booking-desc">${escapeHtml(b.service)} avec ${escapeHtml(b.barberName)} (${escapeHtml(b.clientName)})</p>
+            <p class="active-booking-desc">${escapeHtml(b.service)} avec ${escapeHtml(b.barberName)}</p>
             <div class="active-booking-limit-note">
                 <i data-feather="info"></i>
                 <span>Un seul rendez-vous à la fois est autorisé sur le site et l'application.</span>
@@ -1480,7 +1475,7 @@ if (bookingPhoneInput) {
                             ⚠️ Vous avez déjà un rendez-vous réservé le ${when} !
                         </div>
                         <div style="font-size: 0.82rem; margin-bottom: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
-                            ${escapeHtml(existing.service || 'Coupe')} avec ${escapeHtml(existing.barberName || 'votre coiffeur')}.<br>
+                            Prestation : <strong>${escapeHtml(existing.service || 'Coupe')}</strong>.<br>
                             Un seul rendez-vous à la fois est autorisé sur le site et l'application.
                         </div>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -1523,9 +1518,10 @@ function triggerCalendarExport(dateIso, time, service, clientName, barberName) {
     const endUtcStr = formatCalDateUTC(endDate);
 
     const barberLine = barberName ? `Coiffeur : ${barberName}` : '';
+    const clientLine = clientName ? `Client : ${clientName}\n` : '';
     const title = `Barber C L'Hair — ${service || 'Coupe'}`;
     const location = "33 rue de l'hôtel de ville, 59620 Aulnoye-Aymeries";
-    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service || 'Coupe'}\n${barberLine ? barberLine + '\n' : ''}Client : ${clientName || 'Client'}\nAdresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
+    const descPlain = `Rendez-vous Barber C L'Hair\nForfait : ${service || 'Coupe'}\n${barberLine ? barberLine + '\n' : ''}${clientLine}Adresse : 33 rue de l'hôtel de ville, Aulnoye-Aymeries\nTél : 07 49 15 38 55`;
 
     const ua = navigator.userAgent || '';
     const isAndroid = /Android/i.test(ua);
@@ -1719,7 +1715,6 @@ function initBookingLookup() {
                     barberId: local.barberId || 'isma',
                     barberName: local.barberName || 'Isma',
                     service: local.service || 'Coupe',
-                    clientName: local.clientName || '',
                     docId: local.docId || ''
                 };
             }
@@ -1737,13 +1732,11 @@ function initBookingLookup() {
                     if (doc.id.includes('_phone_' + phoneHash) || (d.barber && String(d.barber).includes(phoneHash))) {
                         let bId = 'isma';
                         let serv = 'Coupe';
-                        let cName = '';
                         const bStr = String(d.barber || '');
                         if (bStr.includes('|')) {
                             const parts = bStr.split('|');
                             bId = parts[1] || 'isma';
                             try { serv = decodeURIComponent(parts[2] || ''); } catch (e) { serv = parts[2]; }
-                            try { cName = decodeURIComponent(parts[3] || ''); } catch (e) { cName = parts[3]; }
                         }
                         if (!isBookingPast(d.date, d.time)) {
                             const [y, m, day] = d.date.split('-').map(Number);
@@ -1754,7 +1747,6 @@ function initBookingLookup() {
                                 barberId: bId,
                                 barberName: getBarberName(bId),
                                 service: serv || 'Coupe',
-                                clientName: cName,
                                 docId: doc.id
                             };
                         }
@@ -1766,7 +1758,7 @@ function initBookingLookup() {
         }
 
         if (booking && !isBookingPast(booking.date, booking.time)) {
-            const waMsg = `Bonjour Barber C L'Hair, je vous contacte concernant mon rendez-vous du ${booking.dateFull} à ${booking.time}${booking.clientName ? ' (' + booking.clientName + ')' : ''}.`;
+            const waMsg = `Bonjour Barber C L'Hair, je vous contacte concernant mon rendez-vous du ${booking.dateFull} à ${booking.time}.`;
             resultBox.innerHTML = `
                 <div class="lookup-found-card">
                     <div class="lookup-found-badge">
@@ -1777,13 +1769,12 @@ function initBookingLookup() {
                     <div class="lookup-found-details">
                         <div class="lookup-detail-row">
                             <i data-feather="scissors"></i>
-                            <span>Prestation : <strong>${escapeHtml(booking.service)}</strong> avec <strong>${escapeHtml(booking.barberName)}</strong></span>
+                            <span>Prestation : <strong>${escapeHtml(booking.service || 'Coupe')}</strong></span>
                         </div>
-                        ${booking.clientName ? `
                         <div class="lookup-detail-row">
-                            <i data-feather="user"></i>
-                            <span>Client : <strong>${escapeHtml(booking.clientName)}</strong></span>
-                        </div>` : ''}
+                            <i data-feather="user-check"></i>
+                            <span>Coiffeur : <strong>${escapeHtml(booking.barberName || 'Salon')}</strong></span>
+                        </div>
                         <div class="lookup-detail-row">
                             <i data-feather="map-pin"></i>
                             <span>Salon : <strong>Barber C L'Hair — 33 Rue de l'Hôtel de Ville, 59620 Aulnoye-Aymeries</strong></span>
@@ -1808,7 +1799,7 @@ function initBookingLookup() {
             const calBtn = resultBox.querySelector('#btn-lookup-add-cal');
             if (calBtn) {
                 calBtn.addEventListener('click', () => {
-                    triggerCalendarExport(booking.date, booking.time, booking.service, booking.clientName, booking.barberName);
+                    triggerCalendarExport(booking.date, booking.time, booking.service, '', booking.barberName);
                 });
             }
         } else {
@@ -2169,7 +2160,7 @@ async function showAdminPlanning() {
                         if (pNorm) {
                             const pHash = (await sha256Hex(pNorm)).slice(0, 32);
                             const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
-                            const pBarberMeta = 'phone_' + pHash + '|' + (b.barberId || 'isma') + '|' + encodeURIComponent(b.service || 'Coupe') + '|' + encodeURIComponent(b.clientName || '');
+                            const pBarberMeta = 'phone_' + pHash + '|' + (b.barberId || 'isma') + '|' + encodeURIComponent(b.service || 'Coupe');
                             batch.set(db.collection('slots').doc(pDocId), {
                                 date: b.date,
                                 time: b.time,
