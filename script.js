@@ -621,11 +621,13 @@ function startBookingsListener() {
                     }
                 }
                 renderCalendarDays();
+                renderActiveBookingBanner();
                 renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
             }, (error) => {
                 console.warn("Écouteur slots :", error);
                 unsubscribeBookings = null;
                 renderCalendarDays();
+                renderActiveBookingBanner();
                 renderSlots(getLocalBookings(formatDateISO(selectedDate)));
             });
     } catch (e) {
@@ -681,6 +683,15 @@ function renderSlots(bookedMap = new Map()) {
     if (availableSlots.length === 0) {
         slotsContainer.innerHTML = '<div class="slots-empty">Le salon est fermé ce jour-là.</div>';
         return;
+    }
+
+    const activeClient = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
+    if (activeClient && (!authUser || !authUser.email)) {
+        const clientNotice = document.createElement('div');
+        clientNotice.className = 'slots-full-notice';
+        clientNotice.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 0.85rem 1rem; margin-bottom: 0.75rem; background: rgba(229, 169, 59, 0.12); border: 1px solid rgba(229, 169, 59, 0.4); border-radius: 8px; color: #fff; font-size: 0.88rem;';
+        clientNotice.innerHTML = `<span>⚠️ Vous avez déjà un rendez-vous réservé le <strong>${escapeHtml(activeClient.dateFull)} à ${escapeHtml(activeClient.time)}</strong>.<br>Un seul rendez-vous à la fois est autorisé sur le site et l'application.</span>`;
+        slotsContainer.appendChild(clientNotice);
     }
 
     const allBusyOrPast = availableSlots.every(t => isSlotPast(selectedDate, t) || isSlotTaken(t, bookedMap, selectedBarber));
@@ -744,6 +755,20 @@ const btnSubmitText = document.getElementById('btn-submit-text');
 
 function openBookingModal(time) {
     if (!bookingModal) return;
+
+    // Règle stricte : 1 seul rendez-vous à la fois sur le site et l'application (hors salon connecté)
+    const activeBooking = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
+    if (activeBooking && (!authUser || !authUser.email)) {
+        alert(`Vous avez déjà un rendez-vous réservé le ${activeBooking.dateFull} à ${activeBooking.time} (${activeBooking.service} avec ${activeBooking.barberName}).\n\nPour le confort de tous les clients, un seul rendez-vous à la fois est autorisé sur le site et l'application.\n\nPour modifier ou annuler votre réservation, contactez le salon au 07 49 15 38 55 ou par WhatsApp.`);
+        if (typeof renderActiveBookingBanner === 'function') renderActiveBookingBanner();
+        const banner = document.getElementById('active-booking-banner');
+        if (banner) {
+            banner.style.display = 'block';
+            banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+    }
+
     currentSlotForBooking = {
         dateIso: formatDateISO(selectedDate),
         dateFull: formatDateFull(selectedDate),
@@ -908,6 +933,14 @@ if (bookingForm) {
         const latestMap = bookingsCache.get(currentSlotForBooking.dateIso) || currentBookedMap;
         const phoneNorm = normalizePhone(phoneVal);
 
+        // Règle : 1 seul rendez-vous à la fois sur le site et l'application (hors salon connecté)
+        const activeBooking = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
+        if (activeBooking && (!authUser || !authUser.email)) {
+            showBookingError(`Vous avez déjà un rendez-vous le ${activeBooking.dateFull} à ${activeBooking.time}. Un seul rendez-vous à la fois est autorisé.`);
+            resetSubmitBtn();
+            return;
+        }
+
         // Coiffeurs à essayer, dans l'ordre de préférence
         let candidates = [];
         if (currentSlotForBooking.barberChoice === ANY_BARBER) {
@@ -953,6 +986,22 @@ if (bookingForm) {
             if (bookingFormStep) bookingFormStep.style.display = 'none';
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
             bookingForm.reset();
+
+            // Mémorise le rendez-vous actif du client (1 seul RDV à la fois sur le site/appli)
+            saveActiveClientBooking({
+                dateIso: currentSlotForBooking.dateIso,
+                dateFull: currentSlotForBooking.dateFull,
+                time: currentSlotForBooking.time,
+                barberId: assignedBarber.id,
+                barberName: assignedBarber.name,
+                service: serviceVal,
+                clientName: nameVal,
+                clientPhone: phoneVal,
+                clientPhoneNorm: phoneNorm,
+                slotId: `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${assignedBarber.id}`,
+                createdAt: new Date().toISOString()
+            });
+            renderActiveBookingBanner();
             loadSlotsForSelectedDate();
 
             if (window.feather) feather.replace();
@@ -1154,6 +1203,103 @@ function isBookingPast(dateIso, time) {
     const slotDate = new Date(y, mo - 1, d, h, m, 0, 0);
     return slotDate.getTime() <= Date.now();
 }
+
+// ===== Gestion de la règle : 1 seul rendez-vous actif à la fois =====
+const CLIENT_BOOKING_KEY = 'barber_client_booking';
+
+function getActiveClientBooking() {
+    try {
+        const raw = localStorage.getItem(CLIENT_BOOKING_KEY);
+        if (!raw) return null;
+        const b = JSON.parse(raw);
+        if (!b || !b.dateIso || !b.time) return null;
+
+        // 1. Si le rendez-vous est déjà passé, le verrou expire automatiquement
+        if (isBookingPast(b.dateIso, b.time)) {
+            localStorage.removeItem(CLIENT_BOOKING_KEY);
+            return null;
+        }
+
+        // 2. Si le salon a supprimé / annulé ce créneau dans son planning Firebase,
+        // le verrou se libère immédiatement et automatiquement
+        if (bookingsCacheReady && b.slotId) {
+            const dayMap = bookingsCache.get(b.dateIso);
+            if (dayMap && (!dayMap.has(b.time) || !dayMap.get(b.time).has(b.barberId))) {
+                localStorage.removeItem(CLIENT_BOOKING_KEY);
+                return null;
+            }
+        }
+
+        return b;
+    } catch (e) {
+        return null;
+    }
+}
+
+function saveActiveClientBooking(data) {
+    try {
+        localStorage.setItem(CLIENT_BOOKING_KEY, JSON.stringify(data));
+    } catch (e) {}
+}
+
+function renderActiveBookingBanner() {
+    const banner = document.getElementById('active-booking-banner');
+    if (!banner) return;
+
+    // Si le gérant est connecté au salon (admin), pas de restriction
+    if (authUser && authUser.email) {
+        banner.style.display = 'none';
+        return;
+    }
+
+    const b = getActiveClientBooking();
+    if (!b) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+    }
+
+    const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier ou annuler mon rendez-vous du ${b.dateFull} à ${b.time} (${b.clientName}).`;
+    banner.innerHTML = `
+        <div class="active-booking-card">
+            <div class="active-booking-badge">
+                <i data-feather="check-circle"></i>
+                <span>Votre rendez-vous confirmé</span>
+            </div>
+            <h4 class="active-booking-time">${escapeHtml(b.dateFull)} à ${escapeHtml(b.time)}</h4>
+            <p class="active-booking-desc">${escapeHtml(b.service)} avec ${escapeHtml(b.barberName)} (${escapeHtml(b.clientName)})</p>
+            <div class="active-booking-limit-note">
+                <i data-feather="info"></i>
+                <span>Un seul rendez-vous à la fois est autorisé sur le site et l'application.</span>
+            </div>
+            <div class="active-booking-btns">
+                <a href="https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}" class="btn btn-outline btn-sm" target="_blank" rel="noopener">
+                    <i data-feather="message-circle"></i> Modifier / Annuler (WhatsApp)
+                </a>
+                <a href="tel:0749153855" class="btn btn-outline btn-sm">
+                    <i data-feather="phone"></i> 07 49 15 38 55
+                </a>
+                <button type="button" class="btn-clear-booking" id="btn-clear-active-booking" title="Réinitialiser si le rendez-vous a été annulé ou pour faire un test">
+                    Libérer cet appareil
+                </button>
+            </div>
+        </div>
+    `;
+    banner.style.display = 'block';
+    if (window.feather) feather.replace();
+}
+
+// Clic pour libérer l'appareil (test ou annulation)
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#btn-clear-active-booking');
+    if (btn) {
+        if (confirm("Réinitialiser le rendez-vous enregistré sur cet appareil ?\n\n(À utiliser si vous avez annulé votre rendez-vous avec le salon ou pour effectuer un test)")) {
+            localStorage.removeItem(CLIENT_BOOKING_KEY);
+            renderActiveBookingBanner();
+            renderSlots(currentBookedMap);
+        }
+    }
+});
 
 function showBookingError(msg) {
     if (bookingError) {
@@ -1391,6 +1537,8 @@ let authUser = null;
 if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().onAuthStateChanged(user => {
         authUser = user;
+        if (typeof renderActiveBookingBanner === 'function') renderActiveBookingBanner();
+        renderSlots(currentBookedMap);
         const logoutBtn = document.getElementById('admin-logout-btn');
         if (user) {
             if (logoutBtn) logoutBtn.style.display = 'inline-flex';
@@ -1992,6 +2140,7 @@ function initCalendar() {
     resetToFirstBookableDay();
     renderBarberOptions();
     renderCalendarDays();
+    renderActiveBookingBanner();
     loadSlotsForSelectedDate();
 }
 
@@ -2004,6 +2153,7 @@ if (document.readyState === 'loading') {
 // Onglet resté ouvert longtemps (ex : après minuit) : on remet le calendrier à jour au retour
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
+    renderActiveBookingBanner();
     if (!hasBookableSlot(selectedDate)) {
         resetToFirstBookableDay();
         loadSlotsForSelectedDate();

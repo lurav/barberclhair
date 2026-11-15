@@ -1391,6 +1391,98 @@ img {
     border-color: rgba(229, 169, 59, 0.4);
 }
 
+/* Active Booking Banner (1 seul RDV à la fois) */
+.active-booking-banner {
+    margin-bottom: 1.5rem;
+}
+
+.active-booking-card {
+    background: linear-gradient(135deg, rgba(229, 169, 59, 0.12), rgba(20, 20, 20, 0.95));
+    border: 1px solid rgba(229, 169, 59, 0.4);
+    border-radius: 12px;
+    padding: 1.25rem 1.4rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.active-booking-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--accent-gold);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.active-booking-badge svg {
+    width: 16px;
+    height: 16px;
+}
+
+.active-booking-time {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 0.35rem 0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.active-booking-desc {
+    color: var(--text-light);
+    font-size: 0.92rem;
+    margin: 0 0 0.85rem 0;
+}
+
+.active-booking-limit-note {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(229, 169, 59, 0.1);
+    border: 1px solid rgba(229, 169, 59, 0.25);
+    border-radius: 6px;
+}
+
+.active-booking-limit-note svg {
+    width: 14px;
+    height: 14px;
+    color: var(--accent-gold);
+    flex-shrink: 0;
+}
+
+.active-booking-btns {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.active-booking-btns .btn {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.85rem;
+}
+
+.btn-clear-booking {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0.3rem 0.5rem;
+    margin-left: auto;
+    transition: color 0.2s ease;
+}
+
+.btn-clear-booking:hover {
+    color: #ff6b6b;
+}
+
 .time-slots {
     border-top: 1px solid var(--border-subtle);
     padding-top: 2rem;
