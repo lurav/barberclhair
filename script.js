@@ -970,7 +970,7 @@ if (bookingForm) {
 
         // Règle stricte cross-device (PC, mobile, appli) : 1 seul rendez-vous à la fois par numéro
         const existingBooking = await checkPhoneHasActiveBooking(phoneVal);
-        if (existingBooking && (!authUser || !authUser.email)) {
+        if (existingBooking) {
             const [ey, em, ed] = existingBooking.date.split('-').map(Number);
             const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existingBooking.time}`;
             const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier mon rendez-vous du ${when}.`;
@@ -1104,11 +1104,15 @@ if (bookingForm) {
                     if (phoneHash) {
                         const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
                         const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
-                        db.collection('slots').doc(phoneDocId).set({
-                            date: currentSlotForBooking.dateIso,
-                            time: currentSlotForBooking.time,
-                            barber: phoneBarberMeta
-                        }).catch(e => console.warn('Phone lock slot :', e));
+                        try {
+                            await db.collection('slots').doc(phoneDocId).set({
+                                date: currentSlotForBooking.dateIso,
+                                time: currentSlotForBooking.time,
+                                barber: phoneBarberMeta
+                            });
+                        } catch (e) {
+                            console.warn('Phone lock slot :', e);
+                        }
 
                         activePhoneBookings.set(phoneHash, {
                             date: currentSlotForBooking.dateIso,
@@ -1136,11 +1140,15 @@ if (bookingForm) {
             if (phoneHash) {
                 const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
                 const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
-                fsCreateDocIn('slots', phoneDocId, {
-                    date: currentSlotForBooking.dateIso,
-                    time: currentSlotForBooking.time,
-                    barber: phoneBarberMeta
-                }, 4000).catch(() => {});
+                try {
+                    await fsCreateDocIn('slots', phoneDocId, {
+                        date: currentSlotForBooking.dateIso,
+                        time: currentSlotForBooking.time,
+                        barber: phoneBarberMeta
+                    }, 4000);
+                } catch (e) {
+                    console.warn('Phone lock slot REST :', e);
+                }
 
                 activePhoneBookings.set(phoneHash, {
                     date: currentSlotForBooking.dateIso,
@@ -1265,29 +1273,93 @@ async function fsCreateDoc(docId, data, timeoutMs) {
     return fsCreateDocIn('bookings', docId, data, timeoutMs);
 }
 
-// Normalise un numéro : "+33 6 12..." / "06 12..." -> "0612..."
+// Normalise un numéro : "+33 6 12..." / "06 12..." / "612..." / "0033..." -> "0612..."
 function normalizePhone(phone) {
     let d = String(phone || '').replace(/\D/g, '');
     if (d.startsWith('0033')) d = '0' + d.slice(4);
-    else if (d.startsWith('33') && d.length === 11) d = '0' + d.slice(2);
+    else if (d.startsWith('33')) {
+        const rest = d.slice(2);
+        d = rest.startsWith('0') ? rest : '0' + rest;
+    }
+    if (d.length === 9 && (d.startsWith('6') || d.startsWith('7') || d.startsWith('1') || d.startsWith('2') || d.startsWith('3') || d.startsWith('4') || d.startsWith('5') || d.startsWith('9'))) {
+        d = '0' + d;
+    }
     return d;
 }
 
-// Hachage cryptographique sécurisé (SHA-256) pour garantir la confidentialité absolue
+// Implémentation pure JS de SHA-256 standard (FIPS 180-4) pour compatibilité 100% universelle
+function sha256Pure(ascii) {
+    function rightRotate(value, amount) {
+        return (value >>> amount) | (value << (32 - amount));
+    }
+    const mathPow = Math.pow;
+    const maxWord = mathPow(2, 32);
+    let result = '';
+    const words = [];
+    const asciiBitLength = ascii.length * 8;
+    let hash = [];
+    let k = [];
+    let primeCounter = 0;
+    const isComposite = {};
+    for (let candidate = 2; primeCounter < 64; candidate++) {
+        if (!isComposite[candidate]) {
+            for (let i = candidate * candidate; i < 313; i += candidate) {
+                isComposite[i] = true;
+            }
+            if (primeCounter < 8) {
+                hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+            }
+            k[primeCounter] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+            primeCounter++;
+        }
+    }
+    ascii += '\x80';
+    while ((ascii.length % 64) - 56) ascii += '\x00';
+    for (let i = 0; i < ascii.length; i++) {
+        const j = ascii.charCodeAt(i);
+        words[i >> 2] |= j << ((3 - (i % 4)) * 8);
+    }
+    words[words.length] = (asciiBitLength / maxWord) | 0;
+    words[words.length] = asciiBitLength | 0;
+    for (let j = 0; j < words.length;) {
+        const w = words.slice(j, j += 16);
+        const oldHash = hash.slice(0);
+        for (let i = 0; i < 64; i++) {
+            const w15 = w[i - 15], w2 = w[i - 2];
+            const s0 = rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3);
+            const s1 = rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10);
+            w[i] = (i < 16) ? w[i] : (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+            const s1_maj = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+            const maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+            const t2 = (s1_maj + maj) | 0;
+            const s1_ch = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+            const ch = (hash[4] & hash[5]) ^ ((~hash[4]) & hash[6]);
+            const t1 = (hash[7] + s1_ch + ch + k[i] + w[i]) | 0;
+            hash = [(t1 + t2) | 0].concat(hash);
+            hash[4] = (hash[4] + t1) | 0;
+            hash.pop();
+        }
+        for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+    for (let i = 0; i < 8; i++) {
+        for (let i2 = 3; i2 >= 0; i2--) {
+            const b = (hash[i] >> (8 * i2)) & 255;
+            result += (b < 16 ? '0' : '') + b.toString(16);
+        }
+    }
+    return result;
+}
+
+// Hachage cryptographique sécurisé (SHA-256 standard) identique sur tous les appareils
 async function sha256Hex(str) {
-    if (window.crypto && crypto.subtle && window.TextEncoder) {
+    if (typeof window !== 'undefined' && window.crypto && crypto.subtle && window.TextEncoder) {
         try {
             const enc = new TextEncoder().encode(str);
             const buf = await crypto.subtle.digest('SHA-256', enc);
             return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
         } catch (e) {}
     }
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash |= 0;
-    }
-    return 'h_' + Math.abs(hash);
+    return sha256Pure(String(str || ''));
 }
 
 // Vérifie si un rendez-vous est déjà passé
@@ -1338,12 +1410,11 @@ function saveActiveClientBooking(data) {
 
 // Vérifie si un numéro de téléphone a déjà un rendez-vous futur actif (cross-device : PC, mobile, appli)
 async function checkPhoneHasActiveBooking(phoneVal) {
-    if (authUser && authUser.email) return null; // Le salon n'a aucune restriction
     const phoneNorm = normalizePhone(phoneVal);
     if (!phoneNorm || phoneNorm.length < 9) return null;
     const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
 
-    // 1. Vérification dans les verrous cross-device Firestore (synchronisés en direct sur tous les appareils)
+    // 1. Vérification dans les verrous cross-device Firestore (synchronisés en direct en mémoire)
     const remote = activePhoneBookings.get(phoneHash);
     if (remote && !isBookingPast(remote.date, remote.time)) {
         return remote;
@@ -1362,6 +1433,90 @@ async function checkPhoneHasActiveBooking(phoneVal) {
             clientName: local.clientName || '',
             docId: local.docId || ''
         };
+    }
+
+    // 3. Secours direct Firestore /slots (au cas où le snapshot listener n'est pas encore arrivé)
+    if (db) {
+        try {
+            const todayIso = formatDateISO(new Date());
+            const snap = await db.collection('slots').where('date', '>=', todayIso).get();
+            let found = null;
+            snap.forEach(doc => {
+                if (found) return;
+                const d = doc.data();
+                if (!d || !d.date || !d.time) return;
+                if (doc.id.includes('_phone_' + phoneHash) || (d.barber && String(d.barber).includes(phoneHash))) {
+                    if (!isBookingPast(d.date, d.time)) {
+                        let bId = 'isma';
+                        let serv = 'Coupe';
+                        const bStr = String(d.barber || '');
+                        if (bStr.includes('|')) {
+                            const parts = bStr.split('|');
+                            bId = parts[1] || 'isma';
+                            try { serv = decodeURIComponent(parts[2] || ''); } catch (e) { serv = parts[2] || 'Coupe'; }
+                        }
+                        const [y, m, day] = d.date.split('-').map(Number);
+                        found = {
+                            date: d.date,
+                            dateFull: formatDateFull(new Date(y, m - 1, day)),
+                            time: d.time,
+                            barberId: bId,
+                            barberName: getBarberName(bId),
+                            service: serv || 'Coupe',
+                            docId: doc.id
+                        };
+                        activePhoneBookings.set(phoneHash, found);
+                    }
+                }
+            });
+            if (found) return found;
+        } catch (e) {
+            console.warn('Check direct slot error :', e);
+        }
+    }
+
+    // 4. Secours ultime via API REST /slots (garantit 100% de détection cross-device même sans SDK)
+    try {
+        const res = await fsFetch(`${FS_BASE}/slots?pageSize=300&key=${firebaseConfig.apiKey}`, {}, 3500);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.documents) {
+                for (const doc of data.documents) {
+                    const name = doc.name || '';
+                    const docId = name.split('/').pop() || '';
+                    const fields = doc.fields || {};
+                    const dDate = fields.date ? fields.date.stringValue : '';
+                    const dTime = fields.time ? fields.time.stringValue : '';
+                    const dBarber = fields.barber ? fields.barber.stringValue : '';
+                    if (!dDate || !dTime) continue;
+                    if (docId.includes('_phone_' + phoneHash) || dBarber.includes(phoneHash)) {
+                        if (!isBookingPast(dDate, dTime)) {
+                            let bId = 'isma';
+                            let serv = 'Coupe';
+                            if (dBarber.includes('|')) {
+                                const parts = dBarber.split('|');
+                                bId = parts[1] || 'isma';
+                                try { serv = decodeURIComponent(parts[2] || ''); } catch (e) { serv = parts[2] || 'Coupe'; }
+                            }
+                            const [y, m, day] = dDate.split('-').map(Number);
+                            const found = {
+                                date: dDate,
+                                dateFull: formatDateFull(new Date(y, m - 1, day)),
+                                time: dTime,
+                                barberId: bId,
+                                barberName: getBarberName(bId),
+                                service: serv || 'Coupe',
+                                docId: docId
+                            };
+                            activePhoneBookings.set(phoneHash, found);
+                            return found;
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Check REST slot error :', e);
     }
 
     return null;
@@ -1682,9 +1837,9 @@ function initBookingLookup() {
     async function performLookup() {
         if (!resultBox) return;
         const rawVal = phoneInput.value.trim();
-        const digits = rawVal.replace(/\D/g, '');
+        const phoneNorm = normalizePhone(rawVal);
 
-        if (digits.length < 10) {
+        if (!phoneNorm || phoneNorm.length < 10) {
             resultBox.innerHTML = `
                 <div class="lookup-empty-box">
                     <i data-feather="alert-circle"></i>
@@ -1698,7 +1853,6 @@ function initBookingLookup() {
             return;
         }
 
-        const phoneNorm = normalizePhone(rawVal);
         const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
 
         // 1. Recherche dans activePhoneBookings (en mémoire Firestore 0ms)
@@ -1754,6 +1908,51 @@ function initBookingLookup() {
                 });
             } catch (e) {
                 console.warn("Direct slots lookup :", e);
+            }
+        }
+
+        // 4. Secours via API REST si le client est sur un réseau restreint ou webview
+        if (!booking) {
+            try {
+                const res = await fsFetch(`${FS_BASE}/slots?pageSize=300&key=${firebaseConfig.apiKey}`, {}, 3500);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.documents) {
+                        for (const doc of data.documents) {
+                            const name = doc.name || '';
+                            const docId = name.split('/').pop() || '';
+                            const fields = doc.fields || {};
+                            const dDate = fields.date ? fields.date.stringValue : '';
+                            const dTime = fields.time ? fields.time.stringValue : '';
+                            const dBarber = fields.barber ? fields.barber.stringValue : '';
+                            if (!dDate || !dTime) continue;
+                            if (docId.includes('_phone_' + phoneHash) || dBarber.includes(phoneHash)) {
+                                if (!isBookingPast(dDate, dTime)) {
+                                    let bId = 'isma';
+                                    let serv = 'Coupe';
+                                    if (dBarber.includes('|')) {
+                                        const parts = dBarber.split('|');
+                                        bId = parts[1] || 'isma';
+                                        try { serv = decodeURIComponent(parts[2] || ''); } catch (e) { serv = parts[2]; }
+                                    }
+                                    const [y, m, day] = dDate.split('-').map(Number);
+                                    booking = {
+                                        date: dDate,
+                                        dateFull: formatDateFull(new Date(y, m - 1, day)),
+                                        time: dTime,
+                                        barberId: bId,
+                                        barberName: getBarberName(bId),
+                                        service: serv || 'Coupe',
+                                        docId: docId
+                                    };
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("REST slots lookup :", e);
             }
         }
 
@@ -2145,7 +2344,7 @@ async function showAdminPlanning() {
             if (allBookings.length > 0) {
                 const batch = db.batch();
                 let hasBatch = false;
-                allBookings.forEach(async b => {
+                for (const b of allBookings) {
                     if (b.id && b.date && b.time) {
                         const slotRef = db.collection('slots').doc(b.id);
                         batch.set(slotRef, {
@@ -2169,8 +2368,14 @@ async function showAdminPlanning() {
                             hasBatch = true;
                         }
                     }
-                });
-                if (hasBatch) batch.commit().catch(e => console.warn('Sync batch slots :', e));
+                }
+                if (hasBatch) {
+                    try {
+                        await batch.commit();
+                    } catch (e) {
+                        console.warn('Sync batch slots :', e);
+                    }
+                }
             }
 
             const counts = {};

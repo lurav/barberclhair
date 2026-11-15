@@ -2,12 +2,12 @@
 // Pages HTML : réseau d'abord (toujours à jour), cache en secours hors-ligne.
 // Fichiers statiques du site : cache d'abord puis mise à jour en arrière-plan.
 // Firebase / API externes : jamais mis en cache (réservations en temps réel).
-const CACHE = 'barber-v44';
+const CACHE = 'barber-v45';
 const PRECACHE = [
   './',
   './index.html',
-  './style.css?v=2.47',
-  './script.js?v=2.43',
+  './style.css?v=2.48',
+  './script.js?v=2.44',
   './fx.css?v=1.4',
   './fx.js?v=1.3',
   './manifest.json',
@@ -57,6 +57,22 @@ self.addEventListener('fetch', (e) => {
           return res;
         })
         .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // Scripts et styles : réseau d'abord pour avoir immédiatement le dernier code, cache en secours
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
     );
     return;
   }
