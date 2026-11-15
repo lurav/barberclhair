@@ -587,6 +587,7 @@ function loadSlotsForSelectedDate() {
 // Un seul écouteur temps réel couvre toute la période réservable (aujourd'hui → +MAX_WEEK_OFFSET semaines).
 // Changer de jour ne refait donc plus aucune requête réseau.
 const bookingsCache = new Map(); // "YYYY-MM-DD" -> Map(time -> barbers)
+const activePhoneBookings = new Map(); // "phoneHash" -> { date, time, docId }
 let bookingsCacheReady = false;
 
 function startBookingsListener() {
@@ -603,9 +604,26 @@ function startBookingsListener() {
             .where('date', '<=', formatDateISO(end))
             .onSnapshot((snapshot) => {
                 bookingsCache.clear();
+                activePhoneBookings.clear();
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     if (!data || !data.time || !data.date) return;
+
+                    // Verrou cross-device de numéro de téléphone (anonymisé par SHA-256)
+                    if (doc.id.includes('_phone_') || (data.barber && String(data.barber).startsWith('phone_'))) {
+                        const pHash = (data.barber && String(data.barber).startsWith('phone_'))
+                            ? String(data.barber).replace('phone_', '')
+                            : doc.id.split('_phone_')[1];
+                        if (pHash && !isBookingPast(data.date, data.time)) {
+                            activePhoneBookings.set(pHash, {
+                                date: data.date,
+                                time: data.time,
+                                docId: doc.id
+                            });
+                        }
+                        return; // Ne pas compter comme un créneau coiffeur !
+                    }
+
                     if (!bookingsCache.has(data.date)) bookingsCache.set(data.date, new Map());
                     addToBookedMap(bookingsCache.get(data.date), data.time, bookingBarberId(data));
                 });
@@ -932,11 +950,14 @@ if (bookingForm) {
         // Données en temps réel (instantanées en mémoire, 0 ms de latence)
         const latestMap = bookingsCache.get(currentSlotForBooking.dateIso) || currentBookedMap;
         const phoneNorm = normalizePhone(phoneVal);
+        const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
 
-        // Règle : 1 seul rendez-vous à la fois sur le site et l'application (hors salon connecté)
-        const activeBooking = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
-        if (activeBooking && (!authUser || !authUser.email)) {
-            showBookingError(`Vous avez déjà un rendez-vous le ${activeBooking.dateFull} à ${activeBooking.time}. Un seul rendez-vous à la fois est autorisé.`);
+        // Règle stricte cross-device (PC, mobile, appli) : 1 seul rendez-vous à la fois par numéro
+        const existingBooking = await checkPhoneHasActiveBooking(phoneVal);
+        if (existingBooking && (!authUser || !authUser.email)) {
+            const [ey, em, ed] = existingBooking.date.split('-').map(Number);
+            const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existingBooking.time}`;
+            showBookingError(`Ce numéro de téléphone (${phoneVal}) a déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est autorisé sur le site et l'application. Pour le modifier ou l'annuler, contactez le salon au 07 49 15 38 55.`);
             resetSubmitBtn();
             return;
         }
@@ -1045,6 +1066,16 @@ if (bookingForm) {
                     const bookingRef = db.collection('bookings').doc(docId);
                     await slotRef.set(slotPayload);
                     bookingRef.set(bookingPayload).catch(e => console.warn('Booking salon privé :', e));
+
+                    // Verrou cross-device du numéro de téléphone (anonymisé par SHA-256)
+                    if (phoneHash) {
+                        const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
+                        db.collection('slots').doc(phoneDocId).set({
+                            date: currentSlotForBooking.dateIso,
+                            time: currentSlotForBooking.time,
+                            barber: 'phone_' + phoneHash
+                        }).catch(e => console.warn('Phone lock slot :', e));
+                    }
                     return true;
                 } catch (dbErr) {
                     if (dbErr && (dbErr.code === 'permission-denied' || dbErr.message?.includes('permission'))) {
@@ -1058,6 +1089,14 @@ if (bookingForm) {
             const slotOk = await fsCreateDocIn('slots', docId, slotPayload, 4000);
             if (!slotOk) throw new Error(SLOT_TAKEN);
             fsCreateDocIn('bookings', docId, bookingPayload, 4000).catch(e => console.warn('Booking salon privé REST :', e));
+            if (phoneHash) {
+                const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
+                fsCreateDocIn('slots', phoneDocId, {
+                    date: currentSlotForBooking.dateIso,
+                    time: currentSlotForBooking.time,
+                    barber: 'phone_' + phoneHash
+                }, 4000).catch(() => {});
+            }
             return true;
         };
 
@@ -1242,6 +1281,28 @@ function saveActiveClientBooking(data) {
     } catch (e) {}
 }
 
+// Vérifie si un numéro de téléphone a déjà un rendez-vous futur actif (cross-device : PC, mobile, appli)
+async function checkPhoneHasActiveBooking(phoneVal) {
+    if (authUser && authUser.email) return null; // Le salon n'a aucune restriction
+    const phoneNorm = normalizePhone(phoneVal);
+    if (!phoneNorm || phoneNorm.length < 9) return null;
+    const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
+
+    // 1. Vérification dans les verrous cross-device Firestore (synchronisés en direct sur tous les appareils)
+    const remote = activePhoneBookings.get(phoneHash);
+    if (remote && !isBookingPast(remote.date, remote.time)) {
+        return remote;
+    }
+
+    // 2. Vérification locale sur cet appareil (au cas où le cache réseau tarde)
+    const local = getActiveClientBooking();
+    if (local && (local.clientPhoneNorm === phoneNorm || !phoneVal) && !isBookingPast(local.dateIso, local.time)) {
+        return { date: local.dateIso, time: local.time };
+    }
+
+    return null;
+}
+
 function renderActiveBookingBanner() {
     const banner = document.getElementById('active-booking-banner');
     if (!banner) return;
@@ -1332,6 +1393,20 @@ if (bookingPhoneInput) {
                 chunks.push(num.substring(i, i + 2));
             }
             e.target.value = chunks.join(' ');
+        }
+
+        if (digits.length >= 10 && (!authUser || !authUser.email)) {
+            checkPhoneHasActiveBooking(digits).then(existing => {
+                if (existing) {
+                    const [ey, em, ed] = existing.date.split('-').map(Number);
+                    const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existing.time}`;
+                    showBookingError(`Ce numéro a déjà un rendez-vous le ${when}. Un seul rendez-vous à la fois est autorisé.`);
+                } else {
+                    if (bookingError && bookingError.textContent.includes('a déjà un rendez-vous')) {
+                        bookingError.style.display = 'none';
+                    }
+                }
+            }).catch(() => {});
         }
     });
 }
@@ -1770,6 +1845,19 @@ async function showAdminPlanning() {
                         }, { merge: true });
                         hasBatch = true;
                     }
+                    if (b.clientPhone && b.date && b.time && !isBookingPast(b.date, b.time)) {
+                        const pNorm = normalizePhone(b.clientPhone);
+                        if (pNorm) {
+                            const pHash = (await sha256Hex(pNorm)).slice(0, 32);
+                            const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
+                            batch.set(db.collection('slots').doc(pDocId), {
+                                date: b.date,
+                                time: b.time,
+                                barber: 'phone_' + pHash
+                            }, { merge: true });
+                            hasBatch = true;
+                        }
+                    }
                 });
                 if (hasBatch) batch.commit().catch(e => console.warn('Sync batch slots :', e));
             }
@@ -2040,6 +2128,14 @@ async function showAdminPlanning() {
                         if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
                             await db.collection('slots').doc(b.id).delete().catch(() => {});
                             await db.collection('bookings').doc(b.id).delete();
+                            if (b.clientPhone) {
+                                const pNorm = normalizePhone(b.clientPhone);
+                                if (pNorm) {
+                                    const pHash = (await sha256Hex(pNorm)).slice(0, 32);
+                                    const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
+                                    await db.collection('slots').doc(pDocId).delete().catch(() => {});
+                                }
+                            }
                             localStorage.removeItem(reminderKey);
                             showAdminPlanning();
                             loadSlotsForSelectedDate();
