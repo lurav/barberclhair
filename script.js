@@ -2186,6 +2186,8 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             if (adminModal && adminModal.classList.contains('show')) {
                 showAdminPlanning();
             }
+            // Purge automatique en arrière-plan des anciens créneaux et RDV (> 7 jours)
+            purgeOldBookings(7, false);
         } else {
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (adminAuthBox) adminAuthBox.style.display = 'block';
@@ -2269,6 +2271,9 @@ const adminNextDayBtn = document.getElementById('admin-next-day-btn');
 if (adminPrevDayBtn) adminPrevDayBtn.addEventListener('click', () => changeAdminDay(-1));
 if (adminNextDayBtn) adminNextDayBtn.addEventListener('click', () => changeAdminDay(1));
 
+const adminPurgeOldBtn = document.getElementById('admin-purge-old-btn');
+if (adminPurgeOldBtn) adminPurgeOldBtn.addEventListener('click', () => purgeOldBookings(7, true));
+
 // Écouteur global pour fermer les modales avec la touche "Retour" du smartphone
 window.addEventListener('popstate', () => {
     const shortcutModal = document.getElementById('admin-shortcut-modal');
@@ -2315,6 +2320,7 @@ if (adminLoginForm) {
                 if (adminEmailInput) adminEmailInput.value = '';
                 if (adminPasswordInput) adminPasswordInput.value = '';
                 showAdminPlanning();
+                purgeOldBookings(7, false);
             }
         } catch (err) {
             console.error('Erreur login salon :', err);
@@ -2371,9 +2377,130 @@ function renderAdminBarberFilter(counts = {}) {
     });
 }
 
+let isPurgingOld = false;
+
+/**
+ * Nettoyage / suppression définitive des réservations et créneaux passés de plus de 7 jours.
+ * - Supprime dans /slots (créneaux publics anonymes et verrous hash téléphone)
+ * - Supprime dans /bookings (détails complets des réservations du salon)
+ * - Nettoie le cache localStorage des rappels anciens
+ */
+async function purgeOldBookings(days = 7, notify = false) {
+    if (!db || !authUser || isPurgingOld) return 0;
+
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - days);
+    threshold.setHours(0, 0, 0, 0);
+    const thresholdIso = formatDateISO(threshold);
+
+    if (notify) {
+        const [y, m, d] = thresholdIso.split('-').map(Number);
+        const limitStr = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+        const ok = confirm(`Supprimer définitivement tous les anciens rendez-vous et créneaux passés de plus d'une semaine (du ${limitStr} et avant) ?`);
+        if (!ok) return 0;
+    }
+
+    isPurgingOld = true;
+    const purgeBtn = document.getElementById('admin-purge-old-btn');
+    const purgeText = document.getElementById('admin-purge-old-text');
+    if (purgeBtn) purgeBtn.disabled = true;
+    if (purgeText) purgeText.textContent = 'Nettoyage...';
+
+    let totalDeletedSlots = 0;
+    let totalDeletedBookings = 0;
+
+    try {
+        // 1. Purge des créneaux dans /slots
+        const slotsSnap = await db.collection('slots')
+            .where('date', '<=', thresholdIso)
+            .get();
+
+        if (!slotsSnap.empty) {
+            let batch = db.batch();
+            let count = 0;
+            for (const doc of slotsSnap.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count % 400 === 0) {
+                    await batch.commit();
+                    batch = db.batch();
+                }
+            }
+            if (count % 400 !== 0) {
+                await batch.commit();
+            }
+            totalDeletedSlots = count;
+        }
+
+        // 2. Purge des réservations dans /bookings
+        const bookingsSnap = await db.collection('bookings')
+            .where('date', '<=', thresholdIso)
+            .get();
+
+        if (!bookingsSnap.empty) {
+            let batch = db.batch();
+            let count = 0;
+            for (const doc of bookingsSnap.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count % 400 === 0) {
+                    await batch.commit();
+                    batch = db.batch();
+                }
+            }
+            if (count % 400 !== 0) {
+                await batch.commit();
+            }
+            totalDeletedBookings = count;
+        }
+
+        // 3. Nettoyage des clés locales expirées
+        try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('barber_reminder_sent_')) {
+                    const val = localStorage.getItem(k);
+                    if (val) {
+                        const t = new Date(val).getTime();
+                        if (Date.now() - t > 14 * 86400000) {
+                            localStorage.removeItem(k);
+                        }
+                    }
+                }
+            }
+        } catch (_) {}
+
+        const total = totalDeletedSlots + totalDeletedBookings;
+        console.log(`[Purge] ${totalDeletedSlots} slots et ${totalDeletedBookings} bookings supprimés (date <= ${thresholdIso}).`);
+
+        if (notify) {
+            if (total > 0) {
+                alert(`✅ Nettoyage terminé avec succès !\n\n${totalDeletedBookings} réservation(s) et ${totalDeletedSlots} créneau(x) passés de plus d'une semaine ont été définitivement supprimés.`);
+            } else {
+                alert(`ℹ️ Aucun ancien rendez-vous de plus d'une semaine à supprimer.`);
+            }
+        }
+
+        return total;
+    } catch (err) {
+        console.warn('[Purge] Erreur :', err);
+        if (notify) {
+            alert(`⚠️ Erreur lors du nettoyage : ${err.message || err}`);
+        }
+        return 0;
+    } finally {
+        isPurgingOld = false;
+        if (purgeBtn) purgeBtn.disabled = false;
+        if (purgeText) purgeText.textContent = 'Nettoyer les RDV > 7j';
+    }
+}
+
 async function showAdminPlanning() {
     if (adminAuthBox) adminAuthBox.style.display = 'none';
     if (adminContentBox) adminContentBox.style.display = 'block';
+
+    // Purge automatique silencieuse des créneaux et réservations de plus de 7 jours
+    purgeOldBookings(7, false);
 
     const selectedIso = formatDateISO(selectedDate);
     if (adminFilterDate) {
@@ -2581,6 +2708,13 @@ async function showAdminPlanning() {
                             loadSlotsForSelectedDate();
                         }
                     }
+                };
+            }
+
+            const purgeOldBtn = document.getElementById('admin-purge-old-btn');
+            if (purgeOldBtn) {
+                purgeOldBtn.onclick = () => {
+                    purgeOldBookings(7, true);
                 };
             }
 
