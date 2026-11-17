@@ -802,17 +802,20 @@ const btnSubmitText = document.getElementById('btn-submit-text');
 function openBookingModal(time) {
     if (!bookingModal) return;
 
-    // Règle stricte : 1 seul rendez-vous à la fois sur le site et l'application
-    const activeBooking = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
-    if (activeBooking) {
-        alert(`Vous avez déjà un rendez-vous réservé le ${activeBooking.dateFull} à ${activeBooking.time} (${activeBooking.service} avec ${activeBooking.barberName}).\n\nPour le confort de tous les clients, un seul rendez-vous à la fois est autorisé sur le site et l'application.\n\nPour modifier ou annuler votre réservation, contactez le salon au 07 49 15 38 55 ou par WhatsApp.`);
-        if (typeof renderActiveBookingBanner === 'function') renderActiveBookingBanner();
-        const banner = document.getElementById('active-booking-banner');
-        if (banner) {
-            banner.style.display = 'block';
-            banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Règle stricte : 1 seul rendez-vous à la fois pour les clients (le coiffeur connecté peut en prendre plusieurs)
+    const isBarberAdmin = !!(authUser && authUser.email);
+    if (!isBarberAdmin) {
+        const activeBooking = (typeof getActiveClientBooking === 'function') ? getActiveClientBooking() : null;
+        if (activeBooking) {
+            alert(`Vous avez déjà un rendez-vous réservé le ${activeBooking.dateFull} à ${activeBooking.time} (${activeBooking.service} avec ${activeBooking.barberName}).\n\nPour le confort de tous les clients, un seul rendez-vous à la fois est autorisé sur le site et l'application.\n\nPour modifier ou annuler votre réservation, contactez le salon au 07 49 15 38 55 ou par WhatsApp.`);
+            if (typeof renderActiveBookingBanner === 'function') renderActiveBookingBanner();
+            const banner = document.getElementById('active-booking-banner');
+            if (banner) {
+                banner.style.display = 'block';
+                banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
         }
-        return;
     }
 
     // Vérification immédiate anti-collision : le créneau est-il déjà pris ?
@@ -988,31 +991,35 @@ if (bookingForm) {
         const phoneNorm = normalizePhone(phoneVal);
         const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
 
-        // Règle stricte cross-device (PC, mobile, appli) : 1 seul rendez-vous à la fois par numéro
-        const existingBooking = await checkPhoneHasActiveBooking(phoneVal);
-        if (existingBooking) {
-            const [ey, em, ed] = existingBooking.date.split('-').map(Number);
-            const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existingBooking.time}`;
-            const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier mon rendez-vous du ${when}.`;
-            showBookingError(`
-                <div style="font-weight: 700; margin-bottom: 0.35rem; color: #ffb8b8;">
-                    ⚠️ Vous avez déjà un rendez-vous réservé le ${when} !
-                </div>
-                <div style="font-size: 0.82rem; margin-bottom: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
-                    Prestation : <strong>${escapeHtml(existingBooking.service || 'Coupe')}</strong>.<br>
-                    Un seul rendez-vous à la fois est autorisé sur le site et l'application.
-                </div>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <a href="https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
-                        Modifier / Annuler via WhatsApp
-                    </a>
-                    <a href="tel:0749153855" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
-                        Appeler le salon
-                    </a>
-                </div>
-            `, true);
-            resetSubmitBtn();
-            return;
+        const isBarberAdmin = !!(authUser && authUser.email);
+
+        // Règle stricte cross-device pour les clients : 1 seul RDV à la fois par numéro (le coiffeur peut en prendre autant qu'il veut)
+        if (!isBarberAdmin) {
+            const existingBooking = await checkPhoneHasActiveBooking(phoneVal);
+            if (existingBooking) {
+                const [ey, em, ed] = existingBooking.date.split('-').map(Number);
+                const when = `${formatDateFull(new Date(ey, em - 1, ed))} à ${existingBooking.time}`;
+                const waMsg = `Bonjour Barber C L'Hair, je souhaite modifier mon rendez-vous du ${when}.`;
+                showBookingError(`
+                    <div style="font-weight: 700; margin-bottom: 0.35rem; color: #ffb8b8;">
+                        ⚠️ Vous avez déjà un rendez-vous réservé le ${when} !
+                    </div>
+                    <div style="font-size: 0.82rem; margin-bottom: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4;">
+                        Prestation : <strong>${escapeHtml(existingBooking.service || 'Coupe')}</strong>.<br>
+                        Un seul rendez-vous à la fois est autorisé sur le site et l'application.
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <a href="https://wa.me/33749153855?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                            Modifier / Annuler via WhatsApp
+                        </a>
+                        <a href="tel:0749153855" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                            Appeler le salon
+                        </a>
+                    </div>
+                `, true);
+                resetSubmitBtn();
+                return;
+            }
         }
 
         // Coiffeurs à essayer, dans l'ordre de préférence
@@ -1061,21 +1068,23 @@ if (bookingForm) {
             if (bookingSuccessStep) bookingSuccessStep.style.display = 'block';
             bookingForm.reset();
 
-            // Mémorise le rendez-vous actif du client (1 seul RDV à la fois sur le site/appli)
-            saveActiveClientBooking({
-                dateIso: currentSlotForBooking.dateIso,
-                dateFull: currentSlotForBooking.dateFull,
-                time: currentSlotForBooking.time,
-                barberId: assignedBarber.id,
-                barberName: assignedBarber.name,
-                service: serviceVal,
-                clientName: nameVal,
-                clientPhone: phoneVal,
-                clientPhoneNorm: phoneNorm,
-                slotId: `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${assignedBarber.id}`,
-                createdAt: new Date().toISOString()
-            });
-            renderActiveBookingBanner();
+            // Mémorise le rendez-vous actif uniquement pour les clients (pas sur l'appareil du coiffeur)
+            if (!isBarberAdmin) {
+                saveActiveClientBooking({
+                    dateIso: currentSlotForBooking.dateIso,
+                    dateFull: currentSlotForBooking.dateFull,
+                    time: currentSlotForBooking.time,
+                    barberId: assignedBarber.id,
+                    barberName: assignedBarber.name,
+                    service: serviceVal,
+                    clientName: nameVal,
+                    clientPhone: phoneVal,
+                    clientPhoneNorm: phoneNorm,
+                    slotId: `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_${assignedBarber.id}`,
+                    createdAt: new Date().toISOString()
+                });
+                renderActiveBookingBanner();
+            }
             loadSlotsForSelectedDate();
 
             if (window.feather) feather.replace();
@@ -1128,8 +1137,8 @@ if (bookingForm) {
                             throw new Error(SLOT_TAKEN);
                         }
 
-                        // 1.2 Vérification du verrou téléphone s'il existe
-                        if (phoneRef) {
+                        // 1.2 Vérification du verrou téléphone s'il existe (uniquement pour les clients réguliers)
+                        if (phoneRef && !isBarberAdmin) {
                             const phoneDoc = await transaction.get(phoneRef);
                             if (phoneDoc.exists) {
                                 throw new Error('PHONE_ALREADY_HAS_BOOKING');
@@ -1429,6 +1438,8 @@ function isBookingPast(dateIso, time) {
 const CLIENT_BOOKING_KEY = 'barber_client_booking';
 
 function getActiveClientBooking() {
+    // Si le coiffeur/salon est connecté, aucune restriction client ne s'applique
+    if (authUser && authUser.email) return null;
     try {
         const raw = localStorage.getItem(CLIENT_BOOKING_KEY);
         if (!raw) return null;
@@ -1465,6 +1476,9 @@ function saveActiveClientBooking(data) {
 
 // Vérifie si un numéro de téléphone a déjà un rendez-vous futur actif (cross-device : PC, mobile, appli)
 async function checkPhoneHasActiveBooking(phoneVal) {
+    // Si le coiffeur/salon est connecté, il peut prendre autant de rendez-vous qu'il souhaite
+    if (authUser && authUser.email) return null;
+
     const phoneNorm = normalizePhone(phoneVal);
     if (!phoneNorm || phoneNorm.length < 9) return null;
     const phoneHash = (await sha256Hex(phoneNorm)).slice(0, 32);
@@ -2180,6 +2194,8 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
         renderSlots(currentBookedMap);
         const logoutBtn = document.getElementById('admin-logout-btn');
         if (user) {
+            // Nettoyer tout verrou client sur l'appareil du coiffeur connecté
+            try { localStorage.removeItem(CLIENT_BOOKING_KEY); } catch (e) {}
             if (logoutBtn) logoutBtn.style.display = 'inline-flex';
             if (adminAuthBox) adminAuthBox.style.display = 'none';
             if (adminContentBox) adminContentBox.style.display = 'block';
@@ -2314,6 +2330,7 @@ if (adminLoginForm) {
                     adminLoginSubmit.disabled = false;
                     adminLoginSubmit.innerHTML = '<span>Connexion Sécurisée</span>';
                 }
+                try { localStorage.removeItem(CLIENT_BOOKING_KEY); } catch (e) {}
                 if (adminEmailInput) adminEmailInput.value = '';
                 if (adminPasswordInput) adminPasswordInput.value = '';
                 showAdminPlanning();
