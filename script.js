@@ -1184,7 +1184,16 @@ if (bookingForm) {
             // 2. Secours via API REST
             const slotOk = await fsCreateDocIn('slots', docId, slotPayload, 4000);
             if (!slotOk) throw new Error(SLOT_TAKEN);
-            await fsCreateDocIn('bookings', docId, bookingPayload, 4000);
+            try {
+                const bookOk = await fsCreateDocIn('bookings', docId, bookingPayload, 4000);
+                if (!bookOk) throw new Error("BOOKING_FAILED");
+            } catch (errBook) {
+                // Rollback immédiat : si la réservation échoue, supprimer le créneau pour éviter un créneau fantôme
+                try {
+                    await fsFetch(`${FS_BASE}/slots/${docId}?key=${firebaseConfig.apiKey}`, { method: 'DELETE' }, 3000);
+                } catch (e) {}
+                throw errBook;
+            }
             if (phoneHash) {
                 const phoneDocId = `${currentSlotForBooking.dateIso}_${currentSlotForBooking.time.replace(':', '')}_phone_${phoneHash}`;
                 const phoneBarberMeta = 'phone_' + phoneHash + '|' + barber.id + '|' + encodeURIComponent(serviceVal);
@@ -2204,6 +2213,8 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             }
             // Purge automatique en arrière-plan des anciens créneaux et RDV (> 7 jours)
             purgeOldBookings(7);
+            // Réconciliation automatique : supprime tout créneau fantôme dans /slots
+            reconcileAllSlotsWithBookings();
         } else {
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (adminAuthBox) adminAuthBox.style.display = 'block';
@@ -2335,6 +2346,7 @@ if (adminLoginForm) {
                 if (adminPasswordInput) adminPasswordInput.value = '';
                 showAdminPlanning();
                 purgeOldBookings(7);
+                reconcileAllSlotsWithBookings();
             }
         } catch (err) {
             console.error('Erreur login salon :', err);
@@ -2487,8 +2499,98 @@ async function purgeOldBookings(days = 7) {
 
 // Purge automatique récurrente toutes les heures si la page reste ouverte
 setInterval(() => {
-    if (authUser) purgeOldBookings(7);
-}, 3600000);
+    if (authUser) {
+        purgeOldBookings(7);
+        reconcileAllSlotsWithBookings();
+    }
+}, 1800000);
+
+let isReconciling = false;
+
+/**
+ * Réconciliation automatique complète :
+ * Parcourt tous les créneaux dans /slots à partir d'aujourd'hui et supprime immédiatement tout créneau fantôme
+ * qui n'existe pas dans les réservations réelles du salon (/bookings).
+ */
+async function reconcileAllSlotsWithBookings() {
+    if (!db || !authUser || !authUser.email || isReconciling) return 0;
+    isReconciling = true;
+
+    try {
+        const todayIso = formatDateISO(new Date());
+
+        // 1. Récupérer toutes les vraies réservations futures
+        const bookingsSnap = await db.collection('bookings')
+            .where('date', '>=', todayIso)
+            .get();
+
+        const validBookingIds = new Set();
+        const validPhoneSlotIds = new Set();
+
+        for (const doc of bookingsSnap.docs) {
+            validBookingIds.add(doc.id);
+            const b = doc.data();
+            if (b && b.clientPhone && b.date && b.time) {
+                const pNorm = normalizePhone(b.clientPhone);
+                if (pNorm) {
+                    const h = await sha256Hex(pNorm);
+                    const pHash = h.slice(0, 32);
+                    validPhoneSlotIds.add(`${b.date}_${b.time.replace(':', '')}_phone_${pHash}`);
+                }
+            }
+        }
+
+        // 2. Récupérer tous les créneaux dans /slots
+        const slotsSnap = await db.collection('slots')
+            .where('date', '>=', todayIso)
+            .get();
+
+        let batch = db.batch();
+        let deleteCount = 0;
+
+        for (const doc of slotsSnap.docs) {
+            const sId = doc.id;
+            let isGhost = false;
+
+            if (sId.includes('_phone_')) {
+                // Verrou test ou orphelin
+                if (sId.includes('test') || !validPhoneSlotIds.has(sId)) {
+                    isGhost = true;
+                }
+            } else {
+                // Créneau coiffeur : s'il n'existe pas dans les vraies réservations bookings, c'est un créneau fantôme !
+                if (!validBookingIds.has(sId)) {
+                    isGhost = true;
+                }
+            }
+
+            if (isGhost) {
+                batch.delete(doc.ref);
+                deleteCount++;
+                console.warn(`[Auto-Clean] Créneau fantôme supprimé : ${sId}`);
+                if (deleteCount % 400 === 0) {
+                    await batch.commit();
+                    batch = db.batch();
+                }
+            }
+        }
+
+        if (deleteCount % 400 !== 0) {
+            await batch.commit();
+        }
+
+        if (deleteCount > 0) {
+            console.log(`[Auto-Clean] ${deleteCount} créneau(x) fantôme(s) libéré(s) avec succès.`);
+            loadSlotsForSelectedDate();
+        }
+        return deleteCount;
+    } catch (err) {
+        console.warn('[Auto-Clean] Erreur réconciliation slots/bookings :', err);
+        return 0;
+    } finally {
+        isReconciling = false;
+    }
+}
 
 async function showAdminPlanning() {
     if (adminAuthBox) adminAuthBox.style.display = 'none';
@@ -2496,6 +2598,7 @@ async function showAdminPlanning() {
 
     // Purge automatique silencieuse des créneaux et réservations de plus de 7 jours
     purgeOldBookings(7);
+    reconcileAllSlotsWithBookings();
 
     const selectedIso = formatDateISO(selectedDate);
     if (adminFilterDate) {
@@ -2553,6 +2656,48 @@ async function showAdminPlanning() {
                         console.warn('Sync batch slots :', e);
                     }
                 }
+            }
+
+            // Nettoyage immédiat des créneaux fantômes pour la journée sélectionnée
+            try {
+                const daySlotsSnap = await db.collection('slots')
+                    .where('date', '==', selectedIso)
+                    .get();
+
+                const validBookingIds = new Set(allBookings.map(b => b.id));
+                const validPhoneSlotIds = new Set();
+                for (const b of allBookings) {
+                    if (b.clientPhone && b.date && b.time) {
+                        const pNorm = normalizePhone(b.clientPhone);
+                        if (pNorm) {
+                            const pHash = (await sha256Hex(pNorm)).slice(0, 32);
+                            validPhoneSlotIds.add(`${b.date}_${b.time.replace(':', '')}_phone_${pHash}`);
+                        }
+                    }
+                }
+
+                let deleteBatch = db.batch();
+                let hasDeletes = false;
+                daySlotsSnap.forEach(doc => {
+                    const sId = doc.id;
+                    if (sId.includes('_phone_')) {
+                        if (sId.includes('test') || !validPhoneSlotIds.has(sId)) {
+                            deleteBatch.delete(doc.ref);
+                            hasDeletes = true;
+                        }
+                    } else {
+                        if (!validBookingIds.has(sId)) {
+                            deleteBatch.delete(doc.ref);
+                            hasDeletes = true;
+                        }
+                    }
+                });
+                if (hasDeletes) {
+                    await deleteBatch.commit();
+                    console.log(`[Sync] Créneaux fantômes nettoyés pour le ${selectedIso}`);
+                }
+            } catch (syncErr) {
+                console.warn('Erreur nettoyage slots fantômes du jour :', syncErr);
             }
 
             const counts = {};
