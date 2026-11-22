@@ -2,12 +2,12 @@
 // Pages HTML : réseau d'abord (toujours à jour), cache en secours hors-ligne.
 // Fichiers statiques du site : cache d'abord puis mise à jour en arrière-plan.
 // Firebase / API externes : jamais mis en cache (réservations en temps réel).
-const CACHE = 'barber-v52';
+const CACHE = 'barber-v53';
 const PRECACHE = [
   './',
   './index.html',
   './style.css?v=2.49',
-  './script.js?v=2.50',
+  './script.js?v=2.51',
   './fx.css?v=1.4',
   './fx.js?v=1.3',
   './manifest.json',
@@ -24,6 +24,12 @@ const PRECACHE = [
   './images/produit_etagere_bois2.jpg',
   './images/produit_oud_cologne.jpg'
 ];
+
+self.addEventListener('message', (e) => {
+  if (e.data && (e.data === 'SKIP_WAITING' || e.data.type === 'SKIP_WAITING')) {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (e) => {
   // Les images de la galerie sont « bonus » : si l'une échoue, l'installation continue
