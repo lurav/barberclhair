@@ -581,23 +581,6 @@ function loadSlotsForSelectedDate() {
 
     // L'écouteur Firebase tourne en arrière-plan et actualise les créneaux en direct
     startBookingsListener();
-
-    // Vérification réseau immédiate en tâche de fond pour garantir la fraîcheur à la seconde près
-    if (db) {
-        db.collection('slots').where('date', '==', selectedIso).get().then(snap => {
-            const freshMap = new Map();
-            snap.forEach(doc => {
-                const data = doc.data();
-                if (data && data.time && !doc.id.includes('_phone_') && !String(data.barber || '').startsWith('phone_')) {
-                    addToBookedMap(freshMap, data.time, bookingBarberId(data));
-                }
-            });
-            bookingsCache.set(selectedIso, freshMap);
-            if (formatDateISO(selectedDate) === selectedIso) {
-                renderSlots(freshMap);
-            }
-        }).catch(() => {});
-    }
 }
 
 // ===== Cache des réservations =====
@@ -606,14 +589,6 @@ function loadSlotsForSelectedDate() {
 const bookingsCache = new Map(); // "YYYY-MM-DD" -> Map(time -> barbers)
 const activePhoneBookings = new Map(); // "phoneHash" -> { date, time, docId }
 let bookingsCacheReady = false;
-
-function restartBookingsListener() {
-    if (unsubscribeBookings) {
-        try { unsubscribeBookings(); } catch (e) {}
-        unsubscribeBookings = null;
-    }
-    startBookingsListener();
-}
 
 function startBookingsListener() {
     if (!db || unsubscribeBookings) return; // déjà actif
@@ -1272,10 +1247,6 @@ if (bookingForm) {
             }
 
             saveLocalBooking(currentSlotForBooking.dateIso, currentSlotForBooking.time, booked.id);
-            if (!bookingsCache.has(currentSlotForBooking.dateIso)) bookingsCache.set(currentSlotForBooking.dateIso, new Map());
-            addToBookedMap(bookingsCache.get(currentSlotForBooking.dateIso), currentSlotForBooking.time, booked.id);
-            renderCalendarDays();
-            renderSlots(bookingsCache.get(currentSlotForBooking.dateIso) || new Map());
             showSuccess(booked);
 
             // Déclenchement facultatif de SMS si une passerelle est configurée en local
@@ -2281,10 +2252,6 @@ function openAdminModal() {
 
 function closeAdminModal(fromHistory = false) {
     if (!adminModal || !adminModal.classList.contains('show')) return;
-    if (unsubscribeAdminPlanning) {
-        try { unsubscribeAdminPlanning(); } catch (e) {}
-        unsubscribeAdminPlanning = null;
-    }
     adminModal.classList.remove('show');
     adminModal.setAttribute('aria-hidden', 'true');
     const shortcutModal = document.getElementById('admin-shortcut-modal');
@@ -2630,8 +2597,6 @@ async function reconcileAllSlotsWithBookings() {
     }
 }
 
-let unsubscribeAdminPlanning = null;
-
 async function showAdminPlanning() {
     if (adminAuthBox) adminAuthBox.style.display = 'none';
     if (adminContentBox) adminContentBox.style.display = 'block';
@@ -2646,23 +2611,19 @@ async function showAdminPlanning() {
     }
 
     if (!adminBookingsList) return;
-
-    if (unsubscribeAdminPlanning) {
-        try { unsubscribeAdminPlanning(); } catch (e) {}
-        unsubscribeAdminPlanning = null;
-    }
+    adminBookingsList.innerHTML = '<div style="text-align: center; color: var(--text-light); padding: 1.5rem;">Chargement des rendez-vous...</div>';
 
     if (db) {
-        adminBookingsList.innerHTML = '<div style="text-align: center; color: var(--text-light); padding: 1.5rem;">Chargement des rendez-vous en direct...</div>';
         try {
-            unsubscribeAdminPlanning = db.collection('bookings')
+            const snap = await db.collection('bookings')
                 .where('date', '==', selectedIso)
-                .onSnapshot(async (snap) => {
-                    const allBookings = [];
-                    snap.forEach(doc => {
-                        const data = doc.data();
-                        allBookings.push({ id: doc.id, ...data, barberId: bookingBarberId(data) });
-                    });
+                .get();
+
+            const allBookings = [];
+            snap.forEach(doc => {
+                const data = doc.data();
+                allBookings.push({ id: doc.id, ...data, barberId: bookingBarberId(data) });
+            });
 
             // Auto-sync des réservations vers les slots publics anonymes
             if (allBookings.length > 0) {
@@ -3135,24 +3096,15 @@ async function showAdminPlanning() {
                 adminBookingsList.appendChild(item);
             });
             if (window.feather) feather.replace();
-        }, (err) => {
-            console.error("Erreur écouteur réservations:", err);
+        } catch (e) {
+            console.error("Erreur de chargement des réservations:", e);
             const local = getLocalBookings(selectedIso);
             if (local && local.size > 0) {
                 renderAdminLocalBookings(local);
             } else {
-                adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement en direct : ${escapeHtml(err.message)}</div>`;
+                adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement en ligne : ${escapeHtml(e.message)}</div>`;
             }
-        });
-    } catch (e) {
-        console.error("Erreur de chargement des réservations:", e);
-        const local = getLocalBookings(selectedIso);
-        if (local && local.size > 0) {
-            renderAdminLocalBookings(local);
-        } else {
-            adminBookingsList.innerHTML = `<div style="color: #ff6b6b; padding: 1rem;">Erreur de chargement en ligne : ${escapeHtml(e.message)}</div>`;
         }
-    }
     } else {
         const local = getLocalBookings(selectedIso);
         if (local && local.size > 0) {
@@ -3245,58 +3197,18 @@ if (document.readyState === 'loading') {
     initCalendar();
 }
 
-// Synchronisation instantanée dès que l'application est réactivée ou revient au premier plan
-async function resumeAndSyncApp() {
+// Onglet resté ouvert longtemps (ex : après minuit) : on remet le calendrier à jour au retour
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
     renderActiveBookingBanner();
-
     if (!hasBookableSlot(selectedDate)) {
         resetToFirstBookableDay();
-    }
-
-    // Réveil explicite du réseau Firebase sur mobile (au cas où le socket était en pause)
-    if (db) {
-        try {
-            if (typeof db.enableNetwork === 'function') {
-                db.enableNetwork().catch(() => {});
-            }
-        } catch (e) {}
-
-        // Redémarrage de l'écouteur si nécessaire pour relancer le WebSocket
-        restartBookingsListener();
-
-        // Si le planning admin est ouvert, on le réactualise immédiatement en direct
-        if (adminModal && adminModal.classList.contains('show') && adminContentBox && adminContentBox.style.display !== 'none') {
-            showAdminPlanning();
-        }
-
-        // Rafraîchissement direct de la date affichée pour réactivité à la milliseconde
-        const iso = formatDateISO(selectedDate);
-        try {
-            const snap = await db.collection('slots').where('date', '==', iso).get();
-            const freshMap = new Map();
-            snap.forEach(doc => {
-                const data = doc.data();
-                if (data && data.time && !doc.id.includes('_phone_') && !String(data.barber || '').startsWith('phone_')) {
-                    addToBookedMap(freshMap, data.time, bookingBarberId(data));
-                }
-            });
-            bookingsCache.set(iso, freshMap);
-            renderCalendarDays();
-            renderSlots(freshMap);
-        } catch (e) {}
+        loadSlotsForSelectedDate();
     } else {
-        renderCalendarDays();
         renderSlots(currentBookedMap);
     }
-}
-
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        resumeAndSyncApp();
-    }
+    renderCalendarDays();
 });
-window.addEventListener('pageshow', resumeAndSyncApp);
-window.addEventListener('focus', resumeAndSyncApp);
 
 /* ==========================================================================
    MOBILE-SPECIFIC ENHANCEMENTS (SWIPE, TOAST, QUICK SELECTION)
