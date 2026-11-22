@@ -2215,7 +2215,10 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             purgeOldBookings(7);
             // Réconciliation automatique : supprime tout créneau fantôme dans /slots
             reconcileAllSlotsWithBookings();
+            // Écouteur temps réel salon pour synchronisation bilatérale instantanée permanente
+            startAdminRealtimeSync();
         } else {
+            stopAdminRealtimeSync();
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (adminAuthBox) adminAuthBox.style.display = 'block';
             if (adminContentBox) adminContentBox.style.display = 'none';
@@ -2366,6 +2369,7 @@ const adminLogoutBtn = document.getElementById('admin-logout-btn');
 if (adminLogoutBtn) {
     adminLogoutBtn.addEventListener('click', async () => {
         if (confirm("Se déconnecter de l'Espace Salon ?")) {
+            stopAdminRealtimeSync();
             if (typeof firebase !== 'undefined' && firebase.auth) {
                 await firebase.auth().signOut();
             }
@@ -2497,20 +2501,66 @@ async function purgeOldBookings(days = 7) {
     }
 }
 
-// Purge automatique récurrente toutes les heures si la page reste ouverte
+// Écouteur temps réel salon pour synchronisation instantanée permanente de toute réservation
+let unsubscribeAdminBookingsSync = null;
+
+function startAdminRealtimeSync() {
+    if (!db || !authUser || !authUser.email || unsubscribeAdminBookingsSync) return;
+    try {
+        const todayIso = formatDateISO(new Date());
+        unsubscribeAdminBookingsSync = db.collection('bookings')
+            .where('date', '>=', todayIso)
+            .onSnapshot(() => {
+                // Dès qu'une réservation est ajoutée, modifiée ou supprimée, synchronisation immédiate vers /slots
+                reconcileAllSlotsWithBookings();
+            }, (err) => {
+                console.warn('[Realtime Sync] Erreur écouteur bookings :', err);
+            });
+    } catch (e) {
+        console.warn('[Realtime Sync] Impossible de démarrer l’écouteur :', e);
+    }
+}
+
+function stopAdminRealtimeSync() {
+    if (unsubscribeAdminBookingsSync) {
+        unsubscribeAdminBookingsSync();
+        unsubscribeAdminBookingsSync = null;
+    }
+}
+
+// Réconciliation automatique récurrente toutes les 60 secondes (1 min) si l'écran reste ouvert
+setInterval(() => {
+    if (authUser) {
+        reconcileAllSlotsWithBookings();
+    }
+}, 60000);
+
+// Purge automatique récurrente toutes les 30 minutes
 setInterval(() => {
     if (authUser) {
         purgeOldBookings(7);
-        reconcileAllSlotsWithBookings();
     }
 }, 1800000);
+
+// Réconciliation automatique dès le réveil du smartphone ou retour sur l'application
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && authUser) {
+        reconcileAllSlotsWithBookings();
+    }
+});
+window.addEventListener('focus', () => {
+    if (authUser) {
+        reconcileAllSlotsWithBookings();
+    }
+});
 
 let isReconciling = false;
 
 /**
- * Réconciliation automatique complète :
- * Parcourt tous les créneaux dans /slots à partir d'aujourd'hui et supprime immédiatement tout créneau fantôme
- * qui n'existe pas dans les réservations réelles du salon (/bookings).
+ * Réconciliation automatique complète et permanente :
+ * 1. Parcourt toutes les réservations réelles (/bookings) et s'assure qu'elles bloquent bien leur créneau public (/slots).
+ * 2. Supprime immédiatement tout créneau fantôme dans /slots qui n'existe pas dans les réservations réelles.
+ * 3. Protège les verrous téléphones cross-device.
  */
 async function reconcileAllSlotsWithBookings() {
     if (!db || !authUser || !authUser.email || isReconciling) return 0;
@@ -2535,17 +2585,25 @@ async function reconcileAllSlotsWithBookings() {
             validBookingIds.add(doc.id);
             const b = doc.data();
             if (b && b.date && b.time) {
-                const stdTime = (b.time || '').replace(':', '');
+                const rawTime = String(b.time || '').trim().replace('h', ':');
+                const timeParts = rawTime.split(':');
+                const stdHour = (timeParts[0] || '').padStart(2, '0');
+                const stdMin = (timeParts[1] || '00').padStart(2, '0');
+                const stdTime = `${stdHour}${stdMin}`;
+                const formattedTime = `${stdHour}:${stdMin}`;
                 const barberId = b.barberId || b.barber || 'isma';
                 const stdSlotId = `${b.date}_${stdTime}_${barberId}`;
+
                 validDateTimeBarbers.add(stdSlotId);
                 validDateTimeBarbers.add(`${b.date}_${b.time}_${barberId}`);
+                validDateTimeBarbers.add(`${b.date}_${formattedTime}_${barberId}`);
+                validDateTimeBarbers.add(`${b.date}_${(b.time || '').replace(':', '')}_${barberId}`);
 
                 // Synchronisation vers /slots pour garantir que chaque réservation réelle bloque bien son créneau public
                 const slotRef = db.collection('slots').doc(stdSlotId);
                 syncBatch.set(slotRef, {
                     date: b.date,
-                    time: b.time,
+                    time: formattedTime,
                     barber: barberId
                 }, { merge: true });
                 syncCount++;
@@ -2560,7 +2618,7 @@ async function reconcileAllSlotsWithBookings() {
                         const pBarberMeta = 'phone_' + pHash + '|' + barberId + '|' + encodeURIComponent(b.service || 'Coupe');
                         syncBatch.set(db.collection('slots').doc(pDocId), {
                             date: b.date,
-                            time: b.time,
+                            time: formattedTime,
                             barber: pBarberMeta
                         }, { merge: true });
                         syncCount++;
@@ -2666,20 +2724,25 @@ async function showAdminPlanning() {
                 let hasBatch = false;
                 for (const b of allBookings) {
                     if (b.date && b.time) {
-                        const stdTime = (b.time || '').replace(':', '');
+                        const rawTime = String(b.time || '').trim().replace('h', ':');
+                        const timeParts = rawTime.split(':');
+                        const stdHour = (timeParts[0] || '').padStart(2, '0');
+                        const stdMin = (timeParts[1] || '00').padStart(2, '0');
+                        const stdTime = `${stdHour}${stdMin}`;
+                        const formattedTime = `${stdHour}:${stdMin}`;
                         const barberId = b.barberId || 'isma';
                         const stdSlotId = `${b.date}_${stdTime}_${barberId}`;
                         const slotRef = db.collection('slots').doc(stdSlotId);
                         batch.set(slotRef, {
                             date: b.date,
-                            time: b.time,
+                            time: formattedTime,
                             barber: barberId
                         }, { merge: true });
                         hasBatch = true;
                         if (b.id && b.id !== stdSlotId && b.id.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$/)) {
                             batch.set(db.collection('slots').doc(b.id), {
                                 date: b.date,
-                                time: b.time,
+                                time: formattedTime,
                                 barber: barberId
                             }, { merge: true });
                         }
@@ -2688,11 +2751,16 @@ async function showAdminPlanning() {
                         const pNorm = normalizePhone(b.clientPhone);
                         if (pNorm) {
                             const pHash = (await sha256Hex(pNorm)).slice(0, 32);
-                            const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
+                            const rawTime = String(b.time || '').trim().replace('h', ':');
+                            const timeParts = rawTime.split(':');
+                            const stdHour = (timeParts[0] || '').padStart(2, '0');
+                            const stdMin = (timeParts[1] || '00').padStart(2, '0');
+                            const stdTime = `${stdHour}${stdMin}`;
+                            const pDocId = `${b.date}_${stdTime}_phone_${pHash}`;
                             const pBarberMeta = 'phone_' + pHash + '|' + (b.barberId || 'isma') + '|' + encodeURIComponent(b.service || 'Coupe');
                             batch.set(db.collection('slots').doc(pDocId), {
                                 date: b.date,
-                                time: b.time,
+                                time: `${stdHour}:${stdMin}`,
                                 barber: pBarberMeta
                             }, { merge: true });
                             hasBatch = true;

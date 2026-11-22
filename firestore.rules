@@ -7,11 +7,12 @@ service cloud.firestore {
     // Aucun nom, prénom ni numéro de téléphone de client.
     match /slots/{slotId} {
       allow read: if true;
-      allow create: if slotId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
-                    && request.resource.data.keys().hasOnly(['date','time','barber'])
-                    && request.resource.data.date is string
-                    && request.resource.data.time is string
-                    && request.resource.data.barber is string;
+      allow create: if (request.auth != null)
+                    || (slotId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
+                        && request.resource.data.keys().hasOnly(['date','time','barber'])
+                        && request.resource.data.date is string
+                        && request.resource.data.time is string
+                        && request.resource.data.barber is string);
       allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
@@ -21,12 +22,13 @@ service cloud.firestore {
     // LECTURE & SUPPRESSION RÉSERVÉES AU SALON CONNECTÉ
     match /bookings/{bookingId} {
       allow read: if request.auth != null;
-      allow create: if bookingId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
-                    && request.resource.data.keys().hasAll(['date','time','barber','service','clientName','clientPhone'])
-                    && request.resource.data.date is string
-                    && request.resource.data.time is string
-                    && request.resource.data.clientName is string
-                    && request.resource.data.clientPhone is string;
+      allow create: if (request.auth != null)
+                    || (bookingId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$')
+                        && request.resource.data.keys().hasAll(['date','time','barber','service','clientName','clientPhone'])
+                        && request.resource.data.date is string
+                        && request.resource.data.time is string
+                        && request.resource.data.clientName is string
+                        && request.resource.data.clientPhone is string);
       allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
