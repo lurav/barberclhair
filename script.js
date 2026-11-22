@@ -400,7 +400,7 @@ function hasBookableSlot(date, bookedMap) {
     if (closedDays.has(iso)) return false;
     const slots = getSlotsForDay(date.getDay());
     if (slots.length === 0) return false;
-    const map = bookedMap || bookingsCache.get(iso) || getLocalBookings(iso);
+    const map = bookedMap || (bookingsCacheReady ? (bookingsCache.get(iso) || new Map()) : (bookingsCache.get(iso) || getLocalBookings(iso)));
     return slots.some(t => !isSlotPast(date, t) && !isSlotTaken(t, map, selectedBarber));
 }
 
@@ -485,7 +485,7 @@ function renderCalendarDays() {
         const iso = formatDateISO(date);
         const isClosed = closedDays.has(iso);
         const daySlots = getSlotsForDay(dayOfWeek);
-        const dayMap = bookingsCache.get(iso) || getLocalBookings(iso);
+        const dayMap = bookingsCacheReady ? (bookingsCache.get(iso) || new Map()) : (bookingsCache.get(iso) || getLocalBookings(iso));
         const isFull = !isPast && !isMonday && !isClosed && (daySlots.length > 0) && daySlots.every(t => isSlotPast(date, t) || isSlotTaken(t, dayMap, selectedBarber));
         const isDisabled = isPast || isMonday || isClosed;
         const isSelected = iso === formatDateISO(selectedDate);
@@ -576,7 +576,7 @@ function loadSlotsForSelectedDate() {
 
     // Affichage instantané en 0 ms sans spinner bloquant :
     // On prend immédiatement le cache mémoire ou local s'il existe
-    const cached = bookingsCache.get(selectedIso) || getLocalBookings(selectedIso);
+    const cached = bookingsCacheReady ? (bookingsCache.get(selectedIso) || new Map()) : (bookingsCache.get(selectedIso) || getLocalBookings(selectedIso));
     renderSlots(cached);
 
     // L'écouteur Firebase tourne en arrière-plan et actualise les créneaux en direct
@@ -2528,21 +2528,55 @@ async function reconcileAllSlotsWithBookings() {
         const validDateTimeBarbers = new Set();
         const validPhoneSlotIds = new Set();
 
+        let syncBatch = db.batch();
+        let syncCount = 0;
+
         for (const doc of bookingsSnap.docs) {
             validBookingIds.add(doc.id);
             const b = doc.data();
             if (b && b.date && b.time) {
-                validDateTimeBarbers.add(`${b.date}_${(b.time || '').replace(':', '')}_${b.barberId || b.barber || 'isma'}`);
-                validDateTimeBarbers.add(`${b.date}_${b.time}_${b.barberId || b.barber || 'isma'}`);
-                if (b.clientPhone) {
+                const stdTime = (b.time || '').replace(':', '');
+                const barberId = b.barberId || b.barber || 'isma';
+                const stdSlotId = `${b.date}_${stdTime}_${barberId}`;
+                validDateTimeBarbers.add(stdSlotId);
+                validDateTimeBarbers.add(`${b.date}_${b.time}_${barberId}`);
+
+                // Synchronisation vers /slots pour garantir que chaque réservation réelle bloque bien son créneau public
+                const slotRef = db.collection('slots').doc(stdSlotId);
+                syncBatch.set(slotRef, {
+                    date: b.date,
+                    time: b.time,
+                    barber: barberId
+                }, { merge: true });
+                syncCount++;
+
+                if (b.clientPhone && !isBookingPast(b.date, b.time)) {
                     const pNorm = normalizePhone(b.clientPhone);
                     if (pNorm) {
                         const h = await sha256Hex(pNorm);
                         const pHash = h.slice(0, 32);
-                        validPhoneSlotIds.add(`${b.date}_${b.time.replace(':', '')}_phone_${pHash}`);
+                        const pDocId = `${b.date}_${stdTime}_phone_${pHash}`;
+                        validPhoneSlotIds.add(pDocId);
+                        const pBarberMeta = 'phone_' + pHash + '|' + barberId + '|' + encodeURIComponent(b.service || 'Coupe');
+                        syncBatch.set(db.collection('slots').doc(pDocId), {
+                            date: b.date,
+                            time: b.time,
+                            barber: pBarberMeta
+                        }, { merge: true });
+                        syncCount++;
                     }
                 }
+
+                if (syncCount >= 400) {
+                    await syncBatch.commit();
+                    syncBatch = db.batch();
+                    syncCount = 0;
+                }
             }
+        }
+
+        if (syncCount > 0) {
+            await syncBatch.commit();
         }
 
         // 2. Récupérer tous les créneaux dans /slots
@@ -2573,19 +2607,20 @@ async function reconcileAllSlotsWithBookings() {
                 batch.delete(doc.ref);
                 deleteCount++;
                 console.warn(`[Auto-Clean] Créneau fantôme supprimé : ${sId}`);
-                if (deleteCount % 400 === 0) {
+                if (deleteCount >= 400) {
                     await batch.commit();
                     batch = db.batch();
+                    deleteCount = 0;
                 }
             }
         }
 
-        if (deleteCount % 400 !== 0) {
+        if (deleteCount > 0) {
             await batch.commit();
         }
 
-        if (deleteCount > 0) {
-            console.log(`[Auto-Clean] ${deleteCount} créneau(x) fantôme(s) libéré(s) avec succès.`);
+        if (deleteCount > 0 || syncCount > 0) {
+            console.log(`[Auto-Clean] ${syncCount} créneaux synchronisés, ${deleteCount} créneau(x) fantôme(s) libéré(s).`);
             loadSlotsForSelectedDate();
         }
         return deleteCount;
@@ -2630,14 +2665,24 @@ async function showAdminPlanning() {
                 const batch = db.batch();
                 let hasBatch = false;
                 for (const b of allBookings) {
-                    if (b.id && b.date && b.time) {
-                        const slotRef = db.collection('slots').doc(b.id);
+                    if (b.date && b.time) {
+                        const stdTime = (b.time || '').replace(':', '');
+                        const barberId = b.barberId || 'isma';
+                        const stdSlotId = `${b.date}_${stdTime}_${barberId}`;
+                        const slotRef = db.collection('slots').doc(stdSlotId);
                         batch.set(slotRef, {
                             date: b.date,
                             time: b.time,
-                            barber: b.barberId || 'isma'
+                            barber: barberId
                         }, { merge: true });
                         hasBatch = true;
+                        if (b.id && b.id !== stdSlotId && b.id.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_.*$/)) {
+                            batch.set(db.collection('slots').doc(b.id), {
+                                date: b.date,
+                                time: b.time,
+                                barber: barberId
+                            }, { merge: true });
+                        }
                     }
                     if (b.clientPhone && b.date && b.time && !isBookingPast(b.date, b.time)) {
                         const pNorm = normalizePhone(b.clientPhone);
@@ -3125,6 +3170,7 @@ function renderAdminLocalBookings(localMap) {
     });
     entries.sort((a, b) => a.time.localeCompare(b.time) || a.barberId.localeCompare(b.barberId));
     adminBookingsList.innerHTML = '<div style="padding: 0.5rem; font-size: 0.8rem; color: var(--accent-gold); font-style: italic;">Rendez-vous enregistrés sur cet appareil :</div>';
+    const selectedIso = formatDateISO(selectedDate);
     entries.forEach(({ time, barberId }) => {
         const barberIndex = Math.max(0, BARBERS.findIndex(x => x.id === barberId));
         const item = document.createElement('div');
@@ -3143,6 +3189,10 @@ function renderAdminLocalBookings(localMap) {
                         <span>✂️ Créneau réservé</span>
                     </span>
                 </div>
+                <button type="button" class="admin-cancel-btn" title="Supprimer ce créneau local">
+                    <i data-feather="trash-2"></i>
+                    <span>Supprimer</span>
+                </button>
             </div>
             <div class="admin-booking-client-info">
                 <div class="admin-booking-client-main">
@@ -3154,6 +3204,24 @@ function renderAdminLocalBookings(localMap) {
                 </div>
             </div>
         `;
+        const delBtn = item.querySelector('.admin-cancel-btn');
+        if (delBtn) {
+            delBtn.addEventListener('click', () => {
+                if (confirm(`Supprimer ce créneau local de ${time} le ${formatDateFull(selectedDate)} ?`)) {
+                    try {
+                        const lKey = `barber_bookings_${selectedIso}`;
+                        const stored = localStorage.getItem(lKey);
+                        if (stored) {
+                            const rem = JSON.parse(stored).filter(e => !String(e).startsWith(time + '|'));
+                            if (rem.length > 0) localStorage.setItem(lKey, JSON.stringify(rem));
+                            else localStorage.removeItem(lKey);
+                        }
+                    } catch (_) {}
+                    showAdminPlanning();
+                    loadSlotsForSelectedDate();
+                }
+            });
+        }
         adminBookingsList.appendChild(item);
     });
     if (window.feather) feather.replace();
