@@ -2525,17 +2525,22 @@ async function reconcileAllSlotsWithBookings() {
             .get();
 
         const validBookingIds = new Set();
+        const validDateTimeBarbers = new Set();
         const validPhoneSlotIds = new Set();
 
         for (const doc of bookingsSnap.docs) {
             validBookingIds.add(doc.id);
             const b = doc.data();
-            if (b && b.clientPhone && b.date && b.time) {
-                const pNorm = normalizePhone(b.clientPhone);
-                if (pNorm) {
-                    const h = await sha256Hex(pNorm);
-                    const pHash = h.slice(0, 32);
-                    validPhoneSlotIds.add(`${b.date}_${b.time.replace(':', '')}_phone_${pHash}`);
+            if (b && b.date && b.time) {
+                validDateTimeBarbers.add(`${b.date}_${(b.time || '').replace(':', '')}_${b.barberId || b.barber || 'isma'}`);
+                validDateTimeBarbers.add(`${b.date}_${b.time}_${b.barberId || b.barber || 'isma'}`);
+                if (b.clientPhone) {
+                    const pNorm = normalizePhone(b.clientPhone);
+                    if (pNorm) {
+                        const h = await sha256Hex(pNorm);
+                        const pHash = h.slice(0, 32);
+                        validPhoneSlotIds.add(`${b.date}_${b.time.replace(':', '')}_phone_${pHash}`);
+                    }
                 }
             }
         }
@@ -2559,7 +2564,7 @@ async function reconcileAllSlotsWithBookings() {
                 }
             } else {
                 // Créneau coiffeur : s'il n'existe pas dans les vraies réservations bookings, c'est un créneau fantôme !
-                if (!validBookingIds.has(sId)) {
+                if (!validBookingIds.has(sId) && !validDateTimeBarbers.has(sId)) {
                     isGhost = true;
                 }
             }
@@ -2665,8 +2670,11 @@ async function showAdminPlanning() {
                     .get();
 
                 const validBookingIds = new Set(allBookings.map(b => b.id));
+                const validDateTimeBarbers = new Set();
                 const validPhoneSlotIds = new Set();
                 for (const b of allBookings) {
+                    validDateTimeBarbers.add(`${b.date}_${(b.time || '').replace(':', '')}_${b.barberId || 'isma'}`);
+                    validDateTimeBarbers.add(`${b.date}_${b.time}_${b.barberId || 'isma'}`);
                     if (b.clientPhone && b.date && b.time) {
                         const pNorm = normalizePhone(b.clientPhone);
                         if (pNorm) {
@@ -2686,7 +2694,7 @@ async function showAdminPlanning() {
                             hasDeletes = true;
                         }
                     } else {
-                        if (!validBookingIds.has(sId)) {
+                        if (!validBookingIds.has(sId) && !validDateTimeBarbers.has(sId)) {
                             deleteBatch.delete(doc.ref);
                             hasDeletes = true;
                         }
@@ -2695,6 +2703,17 @@ async function showAdminPlanning() {
                 if (hasDeletes) {
                     await deleteBatch.commit();
                     console.log(`[Sync] Créneaux fantômes nettoyés pour le ${selectedIso}`);
+                    if (bookingsCache.has(selectedIso)) {
+                        const dMap = bookingsCache.get(selectedIso);
+                        if (dMap) {
+                            dMap.clear();
+                            allBookings.forEach(ab => {
+                                addToBookedMap(dMap, ab.time, ab.barberId);
+                            });
+                        }
+                    }
+                    renderCalendarDays();
+                    renderSlots(bookingsCache.get(selectedIso) || new Map());
                 }
             } catch (syncErr) {
                 console.warn('Erreur nettoyage slots fantômes du jour :', syncErr);
@@ -3003,19 +3022,73 @@ async function showAdminPlanning() {
                 if (cancelBtn) {
                     cancelBtn.addEventListener('click', async () => {
                         if (confirm(`Annuler le rendez-vous de ${b.clientName} à ${b.time} (${barberName}) ?`)) {
-                            await db.collection('slots').doc(b.id).delete().catch(() => {});
+                            // 1. Suppression du document dans /bookings
                             await db.collection('bookings').doc(b.id).delete();
-                            if (b.clientPhone) {
-                                const pNorm = normalizePhone(b.clientPhone);
-                                if (pNorm) {
-                                    const pHash = (await sha256Hex(pNorm)).slice(0, 32);
-                                    const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
-                                    await db.collection('slots').doc(pDocId).delete().catch(() => {});
+
+                            // 2. Suppression de TOUS les documents de créneau dans /slots (coiffeur + verrous téléphone)
+                            try {
+                                const sameTimeSlots = await db.collection('slots')
+                                    .where('date', '==', b.date)
+                                    .where('time', '==', b.time)
+                                    .get();
+                                const sBatch = db.batch();
+                                sameTimeSlots.forEach(sDoc => sBatch.delete(sDoc.ref));
+                                sBatch.delete(db.collection('slots').doc(b.id));
+                                const stdSlotId = `${b.date}_${(b.time || '').replace(':', '')}_${b.barberId || 'isma'}`;
+                                sBatch.delete(db.collection('slots').doc(stdSlotId));
+                                if (b.clientPhone) {
+                                    const pNorm = normalizePhone(b.clientPhone);
+                                    if (pNorm) {
+                                        const pHash = (await sha256Hex(pNorm)).slice(0, 32);
+                                        const pDocId = `${b.date}_${b.time.replace(':', '')}_phone_${pHash}`;
+                                        sBatch.delete(db.collection('slots').doc(pDocId));
+                                        activePhoneBookings.delete(pHash);
+                                    }
+                                }
+                                await sBatch.commit();
+                            } catch (slotErr) {
+                                console.warn('Erreur suppression slots lors de l\'annulation :', slotErr);
+                            }
+
+                            // 3. Libération immédiate des caches en mémoire pour rendre le créneau disponible en 0 ms
+                            if (bookingsCache.has(b.date)) {
+                                const dMap = bookingsCache.get(b.date);
+                                if (dMap) {
+                                    dMap.delete(b.time);
                                 }
                             }
+                            if (currentBookedMap && formatDateISO(selectedDate) === b.date) {
+                                currentBookedMap.delete(b.time);
+                            }
+
+                            // 4. Nettoyage de la clé locale du jour
+                            try {
+                                const lKey = `barber_bookings_${b.date}`;
+                                const stored = localStorage.getItem(lKey);
+                                if (stored) {
+                                    const remaining = JSON.parse(stored).filter(entry => {
+                                        const [t] = String(entry).split('|');
+                                        return t !== b.time;
+                                    });
+                                    localStorage.setItem(lKey, JSON.stringify(remaining));
+                                }
+                            } catch (_) {}
+
+                            // 5. Nettoyage du verrou de réservation client si c'était cet appareil
+                            try {
+                                const activeB = getActiveClientBooking();
+                                if (activeB && activeB.dateIso === b.date && activeB.time === b.time) {
+                                    localStorage.removeItem(CLIENT_BOOKING_KEY);
+                                }
+                            } catch (_) {}
+
                             localStorage.removeItem(reminderKey);
+
+                            // 6. Rafraîchissement direct de l'affichage planning et du calendrier public
                             showAdminPlanning();
-                            loadSlotsForSelectedDate();
+                            renderCalendarDays();
+                            renderActiveBookingBanner();
+                            renderSlots(bookingsCache.get(formatDateISO(selectedDate)) || new Map());
                         }
                     });
                 }
